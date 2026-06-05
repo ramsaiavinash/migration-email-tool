@@ -1,121 +1,202 @@
-// zipParser.js — Extracts and parses migration ZIP files
+// zipParser.js — Supports both Summary ZIP (ProjectError.csv) and Detailed ZIP (TransactionItem.csv)
 
-const AdmZip = require("adm-zip");
+const JSZip = require("jszip");
 
-/**
- * Parses a migration ZIP buffer and returns structured data
- * @param {Buffer} zipBuffer
- * @returns {{ errors: Array, summary: Object, sourceFile: string }}
- */
-function parseZip(zipBuffer, originalFileName = "migration.zip") {
-  const zip = new AdmZip(zipBuffer);
-  const entries = zip.getEntries();
+async function parseZip(buffer, originalName) {
+  const zip = await JSZip.loadAsync(buffer);
+  const files = Object.keys(zip.files);
 
-  let projectErrorCSV = null;
-  let migrationSummaryCSV = null;
+  console.log(`  ZIP contents: ${files.join(", ")}`);
 
-  // Find the CSV files inside the ZIP (handle nested folders)
-  for (const entry of entries) {
-    const name = entry.entryName.split("/").pop().toLowerCase();
-    if (name === "projecterror.csv") {
-      projectErrorCSV = entry.getData().toString("utf8").replace(/^\uFEFF/, ""); // strip BOM
+  // ── Try Summary ZIP first (ProjectError.csv) ──────────────────────────────
+  const projectErrorFile = files.find(f =>
+    f.toLowerCase().includes("projecterror") && f.endsWith(".csv")
+  );
+
+  // ── Try Detailed ZIP (TransactionItem.csv) ────────────────────────────────
+  const transactionFile = files.find(f =>
+    f.toLowerCase().includes("transactionitem") && f.endsWith(".csv")
+  );
+
+  // ── Try MigrationSummary.csv ──────────────────────────────────────────────
+  const summaryFile = files.find(f =>
+    f.toLowerCase().includes("migrationsummary") && f.endsWith(".csv")
+  );
+
+  if (!projectErrorFile && !transactionFile) {
+    throw new Error(
+      "No supported CSV found in the ZIP file. Expected ProjectError.csv (Summary ZIP) or TransactionItem.csv (Detailed ZIP). Please upload the correct migration ZIP."
+    );
+  }
+
+  let userMap = {};
+  let summaryMap = {};
+  let totalErrors = 0;
+
+  if (projectErrorFile) {
+    // ── Parse ProjectError.csv (Summary ZIP format) ─────────────────────────
+    console.log(`  Using ProjectError.csv (Summary ZIP)`);
+    const csvText = await zip.files[projectErrorFile].async("string");
+    const rows = parseCSV(csvText);
+
+    for (const row of rows) {
+      if (!row.ResultCode || row.ResultCode === "None" || row.ResultCode === "Null") continue;
+
+      // SourcePath is the user email in Summary ZIP
+      const userEmail = extractEmail(row.SourcePath || row.Name || "");
+      if (!userEmail) continue;
+
+      if (!userMap[userEmail]) userMap[userEmail] = [];
+      userMap[userEmail].push({
+        FullPath:      row.FullPath      || row.FullPath || "",
+        ResultCode:    row.ResultCode    || "",
+        FailureReason: row.FailureReason || "",
+        Action:        row.Action        || "",
+      });
+      totalErrors++;
     }
-    if (name === "migrationsummary.csv") {
-      migrationSummaryCSV = entry.getData().toString("utf8").replace(/^\uFEFF/, "");
+
+  } else if (transactionFile) {
+    // ── Parse TransactionItem.csv (Detailed ZIP format) ──────────────────────
+    console.log(`  Using TransactionItem.csv (Detailed ZIP)`);
+    const csvText = await zip.files[transactionFile].async("string");
+    const rows = parseCSV(csvText);
+
+    for (const row of rows) {
+      // Only include failed items
+      if (!row.ResultCode || row.ResultCode === "None" || row.ResultCode === "Null") continue;
+      if (row.Status && row.Status.toLowerCase() === "success") continue;
+
+      // SourcePath is the user email in Detailed ZIP
+      const userEmail = extractEmail(row.SourcePath || row.Name || "");
+      if (!userEmail) continue;
+
+      if (!userMap[userEmail]) userMap[userEmail] = [];
+      userMap[userEmail].push({
+        FullPath:      row.FullPath      || "",
+        ResultCode:    row.ResultCode    || "",
+        FailureReason: row.FailureReason || "",
+        Action:        row.OperationStep || "",
+        Status:        row.Status        || "",
+        DestinationPath: row.DestinationPath || "",
+      });
+      totalErrors++;
     }
   }
 
-  if (!projectErrorCSV) {
-    throw new Error("ProjectError.csv not found in the ZIP file. Please upload the correct migration ZIP.");
-  }
-
-  const errors = parseCSV(projectErrorCSV);
-  const summaryRows = migrationSummaryCSV ? parseCSV(migrationSummaryCSV) : [];
-
-  // Build summary map by SourcePath (user email)
-  const summaryMap = {};
-  for (const row of summaryRows) {
-    const email = row.SourcePath || row.sourcepath || "";
-    if (email) {
-      summaryMap[email] = {
-        filesMigrated: row.FilesTotalCopied || row.fileslatestcopied || "N/A",
-        filesFailed: row.FilesFailed || "N/A",
-        sourceFile: originalFileName,
-      };
+  // ── Parse MigrationSummary.csv if present ─────────────────────────────────
+  if (summaryFile) {
+    const summaryText = await zip.files[summaryFile].async("string");
+    const summaryRows = parseCSV(summaryText);
+    for (const row of summaryRows) {
+      const userEmail = extractEmail(row.SourcePath || row.Name || "");
+      if (userEmail) {
+        summaryMap[userEmail] = {
+          filesMigrated: row.FilesLatestCopied || row.FilesTotalCopied || "N/A",
+          sourceFile: originalName,
+        };
+      }
     }
   }
 
-  // Group errors by user email
-  const userMap = {};
-  for (const row of errors) {
-    const email = (row.SourcePath || "").trim();
-    if (!email || !email.includes("@")) continue;
-    if (!userMap[email]) userMap[email] = [];
-    userMap[email].push(row);
+  // Also check Migration Summary.csv (with space)
+  const migSummaryFile = files.find(f =>
+    f.toLowerCase().includes("migration summary") && f.endsWith(".csv")
+  );
+  if (migSummaryFile) {
+    const summaryText = await zip.files[migSummaryFile].async("string");
+    const summaryRows = parseCSV(summaryText);
+    for (const row of summaryRows) {
+      const userEmail = extractEmail(row.SourcePath || row.Name || "");
+      if (userEmail) {
+        summaryMap[userEmail] = {
+          filesMigrated: row.FilesLatestCopied || row.FilesTotalCopied || "N/A",
+          sourceFile: originalName,
+        };
+      }
+    }
   }
+
+  const affectedUsers = Object.keys(userMap).length;
+  console.log(`  Found ${affectedUsers} affected user(s) with ${totalErrors} total errors`);
 
   return {
     userMap,
     summaryMap,
-    sourceFile: originalFileName,
-    totalErrors: errors.length,
-    affectedUsers: Object.keys(userMap).length,
+    sourceFile: originalName,
+    affectedUsers,
+    totalErrors,
   };
 }
 
 /**
- * Parses a CSV string into array of objects using header row as keys
+ * Extracts email address from a SourcePath string like:
+ * "/user@domain.com/folder/file.txt" or "user@domain.com"
  */
-function parseCSV(csvText) {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
+function extractEmail(sourcePath) {
+  if (!sourcePath) return null;
 
+  // Try to extract email from path like /email@domain.com/...
+  const pathMatch = sourcePath.match(/\/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\//);
+  if (pathMatch) return pathMatch[1].toLowerCase();
+
+  // Try direct email match
+  const emailMatch = sourcePath.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) return emailMatch[0].toLowerCase();
+
+  return null;
+}
+
+/**
+ * Parses CSV text into array of objects using header row
+ * Handles quoted fields with commas inside them
+ */
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(l => l.trim());
   if (lines.length < 2) return [];
 
-  const headers = parseCSVRow(lines[0]);
+  const headers = splitCSVRow(lines[0]);
   const rows = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVRow(lines[i]);
-    if (values.length === 0) continue;
-    const obj = {};
+    if (!lines[i].trim()) continue;
+    const values = splitCSVRow(lines[i]);
+    const row = {};
     headers.forEach((h, idx) => {
-      obj[h.trim()] = (values[idx] || "").trim();
+      row[h.trim().replace(/^"|"$/g, "")] = (values[idx] || "").trim().replace(/^"|"$/g, "");
     });
-    rows.push(obj);
+    rows.push(row);
   }
 
   return rows;
 }
 
 /**
- * Parses a single CSV row handling quoted fields
+ * Splits a CSV row respecting quoted fields
  */
-function parseCSVRow(line) {
-  const fields = [];
+function splitCSVRow(line) {
+  const result = [];
   let current = "";
   let inQuotes = false;
 
   for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
+    const char = line[i];
+    if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === "," && !inQuotes) {
-      fields.push(current);
+    } else if (char === "," && !inQuotes) {
+      result.push(current);
       current = "";
     } else {
-      current += ch;
+      current += char;
     }
   }
-  fields.push(current);
-  return fields;
+  result.push(current);
+  return result;
 }
 
 module.exports = { parseZip };

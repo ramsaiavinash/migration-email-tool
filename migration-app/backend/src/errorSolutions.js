@@ -1,84 +1,134 @@
-// errorSolutions.js — Maps Migration Manager error codes to plain-language solutions
+// errorSolutions.js — Complete Microsoft Migration Manager error codes
+// Source: https://learn.microsoft.com/en-us/sharepointmigration/mm-cloud-reports
+// Last updated: June 2025
 
-const ERROR_SOLUTIONS = {
-  MEXPORTFILEUNSUPPORTEDMIMETYPE: {
-    title: "Google Drive Shortcut — cannot be migrated",
-    explanation:
-      "This item is a Google Drive Shortcut (a link/pointer to another file). Shortcuts are not actual files and cannot be transferred to OneDrive.",
-    solution:
-      "Access the original file directly in Google Drive. To add it to OneDrive, open the original file in Google Drive and upload a copy manually to OneDrive.",
-    actionRequired: "Yes — user action needed",
-    retryByIT: "No",
-    severity: "Warning",
-  },
-  MVERSIONDOWNLOAD: {
-    title: "File version download failed",
-    explanation:
-      "The file could not be downloaded from Google Drive during the migration export due to a temporary version download error.",
-    solution:
-      "No action needed from you. The IT team will automatically retry migrating this file within 48 hours.",
-    actionRequired: "No — IT will retry",
-    retryByIT: "Yes — within 48 hours",
-    severity: "Warning",
-  },
-  MFOLDERPATHTOLONG: {
-    title: "File path too long for OneDrive",
-    explanation:
-      "The full folder path and file name combined exceed OneDrive's 260-character limit.",
-    solution:
-      "Shorten the folder name or file name so the total path length is under 260 characters, then re-upload to OneDrive manually.",
-    actionRequired: "Yes — user action needed",
-    retryByIT: "No",
-    severity: "Error",
-  },
-  MEXPORTFILERATELIMIT: {
-    title: "Export rate limited by Google",
-    explanation:
-      "Google temporarily blocked the export of this file due to rate limiting.",
-    solution:
-      "No action needed from you. The IT team will automatically retry this file.",
-    actionRequired: "No — IT will retry",
-    retryByIT: "Yes — within 48 hours",
-    severity: "Warning",
-  },
-  MPERMISSION: {
-    title: "Permission error — file not accessible",
-    explanation:
-      "The migration tool could not access this file due to a permission restriction in Google Drive.",
-    solution:
-      "Check the sharing settings of this file in Google Drive. Ensure the migration service account has at least Viewer access, then contact IT to retry.",
-    actionRequired: "Yes — check permissions in Google Drive",
-    retryByIT: "After user fixes permissions",
-    severity: "Error",
-  },
-  MDUPLICATEFILE: {
-    title: "Duplicate file conflict",
-    explanation:
-      "A file with the same name already exists at the destination path in OneDrive.",
-    solution:
-      "Check if the file already exists in your OneDrive. If it does and is up to date, no action is needed. If not, rename one of the files and re-upload.",
-    actionRequired: "Yes — check OneDrive for duplicates",
-    retryByIT: "No",
-    severity: "Warning",
-  },
-  MUNKNOWN: {
-    title: "Unknown migration error",
-    explanation:
-      "An unexpected error occurred during migration of this item.",
-    solution:
-      "Please contact IT at it-support@chs.net with the file name and error details. The IT team will investigate and resolve this manually.",
-    actionRequired: "Yes — contact IT support",
-    retryByIT: "IT will investigate",
-    severity: "Error",
-  },
+const {generateAISolution}=require("./aiSolutions");
+
+const SOLUTIONS={
+  // ── AUTH ERRORS ─────────────────────────────────────────────────────────────
+  MACCESSDENIED:{title:"Access denied to file or folder",explanation:"The migration tool was denied access to this item. Permissions may be missing or restricted.",solution:"Check the sharing permissions for this file in Google Drive and ensure the migration service account has at least Viewer access. Then retry the migration task.",actionRequired:"Yes — check permissions in Google Drive",retryByIT:"After user fixes permissions",severity:"Error",aiGenerated:false},
+  MACCESSTOKENNULL:{title:"Connector authorization failed",explanation:"The migration request failed because the connector authorization token is null.",solution:"Unexpected error. The IT team will retry. If it persists, the migration connector needs to be reauthorized in Migration Manager.",actionRequired:"No — IT will retry",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHACCESSTOKEN:{title:"Failed to get access token",explanation:"Connector authorization failed — could not retrieve the access token from Google.",solution:"IT will go to Migration Manager Project Settings, disconnect and reconnect the Google source, then rerun the migration task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHACCESSTOKENINVALID:{title:"Access token invalid or expired",explanation:"The API request failed because the access token is invalid or expired.",solution:"IT will go to Google Admin Console, select Apps > Google Workspace > Service Status and ensure Drive and Docs is set to ON for everyone.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will fix",severity:"Error",aiGenerated:false},
+  MAUTHCALLERNOTAUTHENTICATED:{title:"Caller not authenticated by service",explanation:"Connector authorization failed — the service does not recognize the caller.",solution:"IT will disconnect and reconnect the Google source in Migration Manager Project Settings, then rerun the task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHMOVERAPP:{title:"Migration app not authorized",explanation:"The Microsoft 365 migration app needs to be authorized in the source Google account.",solution:"IT will go to Migration Manager Project Settings, disconnect the source, reconnect, and rerun the migration task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHNOCODE:{title:"Auth code not provided",explanation:"Connector authorization failed because the authentication code was not provided.",solution:"IT will disconnect and reconnect the Google source in Migration Manager, then rerun the task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHNOEMAIL:{title:"Failed to get email from claim",explanation:"Connector authorization failure — could not retrieve email from the authentication claim.",solution:"IT will disconnect and reconnect the Google source in Migration Manager, then rerun the task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHNOIDTOKEN:{title:"Failed to get ID token",explanation:"Connector authorization failure — could not get the ID token from the access token.",solution:"IT will disconnect and reconnect the Google source in Migration Manager, then rerun the task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHNOTENANT:{title:"No tenant ID found",explanation:"Connector authorization failed — no tenant or enterprise ID was found in the authentication response.",solution:"IT will disconnect and reconnect the Google source in Migration Manager, then rerun the task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will reauthorize",severity:"Error",aiGenerated:false},
+  MAUTHREFRESHTOKEN:{title:"Failed to get refresh token",explanation:"Connector authorization failure — could not get the refresh token from Google.",solution:"IT will go to Google Admin Console > Apps > Google Workspace > Service Status and ensure Drive and Docs is ON for everyone.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will fix",severity:"Error",aiGenerated:false},
+  MAUTHUSERNOTADMIN:{title:"User does not have admin role",explanation:"Connector authorization failed — the Google account used does not have admin privileges.",solution:"IT will ensure the Google account used for migration is a Google Workspace Super Admin or Groups Admin, then reauthorize.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will fix",severity:"Error",aiGenerated:false},
+
+  // ── UPLOAD / AZURE ERRORS ───────────────────────────────────────────────────
+  MAZUREUPLOAD:{title:"Failed to submit migration job",explanation:"The migration job could not be submitted to the Migration API after files were uploaded to Azure blob storage.",solution:"No action needed. The IT team will retry this migration task.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+
+  // ── GENERAL REQUEST ERRORS ──────────────────────────────────────────────────
+  MBADREQUEST:{title:"Bad request on source or destination",explanation:"A bad request was made when operating on the source or destination item. This is an unexpected error.",solution:"No action needed. The IT team will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MCONNECTORNOTFOUND:{title:"Connector not found",explanation:"The migration connector was not found in the database.",solution:"IT will check the connector settings in Migration Manager and retry.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will fix",severity:"Error",aiGenerated:false},
+  MCORRELATE:{title:"Source listing mismatch",explanation:"The migration collection is missing the source listing — a correlation error occurred.",solution:"IT will confirm the source location and retry the migration task.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will retry",severity:"Error",aiGenerated:false},
+
+  // ── DESTINATION ERRORS ──────────────────────────────────────────────────────
+  MDESTINATIONNOTWRITABLE:{title:"Destination is not writable",explanation:"The migration tool does not have write access to the OneDrive destination.",solution:"IT will check the destination OneDrive permissions and ensure the migration account has write access, then retry.",actionRequired:"No — IT will fix",retryByIT:"Yes — after IT fixes permissions",severity:"Error",aiGenerated:false},
+  MDUPLICATE:{title:"Duplicate file already exists",explanation:"This file already exists in your OneDrive destination location.",solution:"Check if the file already exists in your OneDrive. If it is up to date, no further action is needed. If not, rename the file and request a retry from IT.",actionRequired:"Yes — check OneDrive for existing file",retryByIT:"No",severity:"Warning",aiGenerated:false},
+
+  // ── METADATA / EXPORT ERRORS ────────────────────────────────────────────────
+  MEMPTYMETADATA:{title:"Unable to find metadata",explanation:"The migration tool was unable to find metadata for this file.",solution:"No action needed. The IT team will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MEXPORTFILERESTRICTED:{title:"File is restricted — cannot migrate",explanation:"This file is restricted in Google Drive and cannot be exported for migration.",solution:"Check the sharing settings or legal restrictions on this file in Google Drive. If possible, remove the restriction and contact IT to retry.",actionRequired:"Yes — check file restrictions in Google Drive",retryByIT:"After user removes restrictions",severity:"Error",aiGenerated:false},
+  MEXPORTFILEUNSUPPORTED:{title:"Unsupported file type",explanation:"This file type is not supported for migration from Google Drive to OneDrive.",solution:"You cannot migrate this file type automatically. Download the file manually from Google Drive and upload it to OneDrive.",actionRequired:"Yes — manual download and upload needed",retryByIT:"No",severity:"Warning",aiGenerated:false},
+  MEXPORTFILEUNSUPPORTEDMIMETYPE:{title:"Google Drive Shortcut — cannot migrate",explanation:"This item is a Google Drive Shortcut (a link or pointer to another file). Shortcuts are not actual files and cannot be transferred to OneDrive.",solution:"Access the original file directly in Google Drive. To add it to OneDrive, open the original file in Google Drive and upload a copy manually to your OneDrive.",actionRequired:"Yes — user action needed",retryByIT:"No",severity:"Warning",aiGenerated:false},
+
+  // ── FOLDER / ROOT ERRORS ────────────────────────────────────────────────────
+  MFAILEDGETROOTITEM:{title:"Failed to get root folder",explanation:"The migration tool failed to retrieve the root folder listing from Google Drive.",solution:"No action needed. The IT team will retry the migration task.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+
+  // ── FILE IMPORT / SIZE ERRORS ───────────────────────────────────────────────
+  MFILEIMPORT:{title:"File type not supported in destination",explanation:"This file type is not supported in the OneDrive destination location.",solution:"Check the source file type. Some Google-native formats (like Google Forms) may not be supported in OneDrive. Contact IT for alternatives.",actionRequired:"Yes — check file type",retryByIT:"No",severity:"Warning",aiGenerated:false},
+  MFILELOCKED:{title:"File is locked",explanation:"This file is locked in Google Drive and cannot be downloaded or read.",solution:"Unlock the file in Google Drive by removing any locks or edit restrictions, then contact IT to retry.",actionRequired:"Yes — unlock file in Google Drive",retryByIT:"After user unlocks",severity:"Error",aiGenerated:false},
+  MFILENAMELENGTH:{title:"Filename too long",explanation:"The filename exceeds the maximum allowable length for OneDrive.",solution:"Rename the file in Google Drive to a shorter name (maximum 256 characters for the filename alone), then contact IT to retry.",actionRequired:"Yes — rename file to shorter name",retryByIT:"After user renames",severity:"Error",aiGenerated:false},
+  MFILESIZEINCORRECT:{title:"Downloaded file size incorrect",explanation:"The downloaded file is smaller than expected — the file may be corrupt or partially uploaded in Google Drive.",solution:"Check the file size in Google Drive and compare. If the file appears corrupt, re-upload the original to Google Drive and contact IT to retry.",actionRequired:"Yes — check file in Google Drive",retryByIT:"After user verifies file",severity:"Error",aiGenerated:false},
+  MFOLDERPATHTOLONG:{title:"File path too long for OneDrive",explanation:"The full folder path and file name combined exceed OneDrive's 260-character limit.",solution:"Shorten the folder name or file name so the total path length is under 260 characters, then re-upload to OneDrive manually.",actionRequired:"Yes — shorten folder or file name",retryByIT:"No",severity:"Error",aiGenerated:false},
+
+  // ── PERMISSIONS ERRORS ──────────────────────────────────────────────────────
+  MGETFOLDERACLS:{title:"Failed to get folder permissions",explanation:"The migration tool failed to retrieve the shared folder membership and permissions.",solution:"Check the folder permissions in Google Drive and ensure they are accessible. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+
+  // ── NETWORK / CONNECTION ERRORS ─────────────────────────────────────────────
+  MHTTPCONNECTION:{title:"Network connection failure",explanation:"The migration tool encountered a network connection failure.",solution:"No action needed. This is a temporary network issue. The IT team will retry automatically.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+
+  // ── USER / EMAIL ERRORS ─────────────────────────────────────────────────────
+  MINVALIDEMAIL:{title:"Invalid user email address",explanation:"The user email address is invalid — the migration tool could not find a user with that email.",solution:"IT will verify the user email address in the migration task and correct it if needed.",actionRequired:"No — IT will fix",retryByIT:"Yes — after IT corrects email",severity:"Error",aiGenerated:false},
+  MINVALIDPAGESIZE:{title:"Invalid pagination page size",explanation:"The page size for connector pagination is invalid (must be greater than zero).",solution:"No action needed. Unexpected technical error. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MINVALIDPARENTID:{title:"Item has no parent ID",explanation:"This item has no parent ID — ID-based connectors require items to have a parent ID.",solution:"Check the file location in Google Drive. If the file is an orphaned item with no parent folder, move it to a folder and contact IT to retry.",actionRequired:"Yes — check file location in Google Drive",retryByIT:"After user moves file",severity:"Error",aiGenerated:false},
+  MINVALIDPATH:{title:"Invalid file path",explanation:"The path to this file or folder is invalid.",solution:"Check the source path in Google Drive for any unusual characters or broken folder structure. Contact IT to retry after fixing.",actionRequired:"Yes — check file path in Google Drive",retryByIT:"After user fixes path",severity:"Error",aiGenerated:false},
+  MINVALIDRESPONSE:{title:"Invalid API response",explanation:"The migration tool received an invalid response from the Google Drive API.",solution:"No action needed. Temporary API issue. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MITEMPATHLENGTH:{title:"Item path too long",explanation:"The full item path exceeds the length restriction for OneDrive.",solution:"Shorten folder names in the path to reduce the total character count below 260 characters. Contact IT to retry after renaming.",actionRequired:"Yes — shorten folder names in path",retryByIT:"After user shortens path",severity:"Error",aiGenerated:false},
+  MLARGEFILESIZEEXPORT:{title:"File too large to export from Google",explanation:"This file exceeds the maximum size allowed for export from Google Drive (15 GB).",solution:"You cannot migrate this file automatically. Download it manually from Google Drive using the original format and upload it to OneDrive.",actionRequired:"Yes — manual download and upload needed",retryByIT:"No",severity:"Error",aiGenerated:false},
+  MLARGEFILESIZEIMPORT:{title:"File too large for OneDrive",explanation:"This file exceeds the maximum allowed size for import into OneDrive.",solution:"OneDrive supports files up to 250 GB. If your file exceeds this, it cannot be uploaded. Contact IT for guidance on alternative storage.",actionRequired:"Yes — check file size",retryByIT:"No",severity:"Error",aiGenerated:false},
+  MLISTGROUP:{title:"Failed to list groups",explanation:"The API request to list groups for the connector failed — may be caused by throttling.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MLISTING:{title:"Folder listing failed",explanation:"The folder listing in Google Drive failed.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MLISTUSER:{title:"Failed to get user listing",explanation:"The migration tool failed to get the user listing from Google — may be caused by throttling.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MLOCKACQ:{title:"Failed to acquire access token lock",explanation:"The migration tool failed to acquire a lock within the timeout period to obtain a new access token.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MNONDESTRUCTIVEOPTIONENABLED:{title:"Cannot delete file or folder",explanation:"The migration tool was unable to delete a file or folder due to non-destructive mode being enabled.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MNOPARENT:{title:"Item has no parent folder",explanation:"This item does not have a parent folder item in Google Drive.",solution:"Move the file into a folder in Google Drive, then contact IT to retry.",actionRequired:"Yes — move file into a folder in Google Drive",retryByIT:"After user moves file",severity:"Error",aiGenerated:false},
+  MNOTAFILE:{title:"Path is not a file",explanation:"The path refers to something that is not a file.",solution:"Check the path in Google Drive and ensure it points to an actual file. Contact IT to retry.",actionRequired:"Yes — check path in Google Drive",retryByIT:"After user verifies",severity:"Error",aiGenerated:false},
+  MNOTAFOLDER:{title:"Path is not a folder",explanation:"The path refers to something that is not a folder.",solution:"Check the path in Google Drive and ensure it points to an actual folder. Contact IT to retry.",actionRequired:"Yes — check path in Google Drive",retryByIT:"After user verifies",severity:"Error",aiGenerated:false},
+  MNOTFOUND:{title:"Item not found",explanation:"The file or folder was not found in Google Drive. It may have been deleted or moved.",solution:"Check if the file still exists in Google Drive. If it was accidentally deleted, restore it from Trash. Contact IT to retry.",actionRequired:"Yes — check if file exists in Google Drive",retryByIT:"After user restores file",severity:"Error",aiGenerated:false},
+  MNOTIMPLEMENTED:{title:"Method not implemented",explanation:"The migration method is not implemented for this connector.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MNOTPERMITTED:{title:"Action not permitted",explanation:"The migration tool cannot perform actions outside the user's folder level.",solution:"Check the Google Drive permissions and ensure the migration account is authorized to access this folder. Contact IT.",actionRequired:"No — IT will fix permissions",retryByIT:"Yes — after IT fixes",severity:"Error",aiGenerated:false},
+  MNOTUSERORTEAMDRIVE:{title:"Source name mismatch",explanation:"The item name in Google Drive may contain invisible characters that do not match the migration task source path.",solution:"Rename the file or folder in Google Drive to remove any invisible or special characters, then update the migration task source path to match the new name.",actionRequired:"Yes — rename item in Google Drive",retryByIT:"After user renames",severity:"Error",aiGenerated:false},
+  MOWNERNOTFOUND:{title:"File owner not found",explanation:"The original owner of this file was removed or their information could not be found.",solution:"Reassign ownership of the file in Google Drive to an active user. Contact IT to retry after ownership is transferred.",actionRequired:"Yes — reassign file ownership in Google Drive",retryByIT:"After ownership reassigned",severity:"Error",aiGenerated:false},
+  MPATHMALFORMED:{title:"Malformed file path",explanation:"The file path format is invalid or malformed.",solution:"Check the source path in Google Drive for any formatting issues. Contact IT to retry after fixing.",actionRequired:"Yes — check source path",retryByIT:"After user fixes path",severity:"Error",aiGenerated:false},
+  MPERMISSION:{title:"Permission error — file not accessible",explanation:"The migration tool could not access this file due to a permission restriction in Google Drive.",solution:"Check the sharing settings of this file in Google Drive. Ensure the migration service account has at least Viewer access, then contact IT to retry.",actionRequired:"Yes — check permissions in Google Drive",retryByIT:"After user fixes permissions",severity:"Error",aiGenerated:false},
+  MSERVICENOTAVAILABLE:{title:"Service temporarily unavailable",explanation:"The Google Drive or migration service is temporarily unavailable.",solution:"No action needed. IT will retry when the service is available.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MSETITEMPERMISSION:{title:"Failed to set permissions",explanation:"The migration tool failed to set permissions on the destination item. May be caused by throttling.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MSOURCENOTREADABLE:{title:"Source directory not readable",explanation:"The migration tool is unable to read the source directory in Google Drive.",solution:"Confirm the source location exists in Google Drive and is accessible. Contact IT to retry.",actionRequired:"No — IT will verify and retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MSTORAGEQUOTAREACHED:{title:"Storage quota exceeded",explanation:"The storage quota for the connector has been exceeded.",solution:"Increase the storage limit on OneDrive or free up space. Contact IT for assistance.",actionRequired:"Yes — free up OneDrive storage or contact IT",retryByIT:"After quota is increased",severity:"Error",aiGenerated:false},
+  MTHROTTLE:{title:"API rate limit throttled",explanation:"API requests made by the migration connector are being throttled by Google.",solution:"No action needed. IT will wait and retry automatically.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MUNVERIFIEDPARENT:{title:"Unverified parent item",explanation:"This item does not have a verified parent item in Google Drive.",solution:"Check the file location in Google Drive. Contact IT to retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MUPDATEITEMPERMISSION:{title:"Failed to remove permissions",explanation:"The migration tool failed to remove permissions from this item.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MUSERCOUNT:{title:"Failed to get user count",explanation:"An unexpected failure occurred when trying to get the user count.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MUSERFORBIDDEN:{title:"User forbidden from accessing file",explanation:"The current user does not have permission to access this file or folder.",solution:"Check the sharing permissions for this file in Google Drive. Ensure your account has at least Viewer access and contact IT to retry.",actionRequired:"Yes — check file permissions in Google Drive",retryByIT:"After user fixes permissions",severity:"Error",aiGenerated:false},
+  MUSERINFONOTFOUND:{title:"User account info not found",explanation:"The user account information was not found in Google Drive.",solution:"Check the user account information and ensure it is correct. Contact IT to retry.",actionRequired:"No — IT will verify",retryByIT:"Yes — after IT verifies",severity:"Error",aiGenerated:false},
+  MUSERNOTFOUND:{title:"User not found or disabled",explanation:"The user is not found, or the user account is either disabled or deleted.",solution:"Verify the user account exists and is active in Google Workspace. If the account was deleted, restore it and contact IT to retry.",actionRequired:"Yes — verify user account in Google Workspace",retryByIT:"After user account is restored",severity:"Error",aiGenerated:false},
+  MUSERQUOTAREACHED:{title:"User quota limit reached",explanation:"The Microsoft Graph user quota limit has been reached for this user.",solution:"Contact IT to increase the OneDrive quota or clean up storage for this user.",actionRequired:"Yes — contact IT about quota",retryByIT:"After quota is increased",severity:"Error",aiGenerated:false},
+  MVERSIONDOWNLOAD:{title:"File version download failed",explanation:"The file could not be downloaded from Google Drive during the migration export due to a temporary version download error.",solution:"No action needed. The IT team will automatically retry migrating this file within 48 hours.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Warning",aiGenerated:false},
+  MZEROBYTEFILESIZEIMPORT:{title:"Zero byte file — cannot import",explanation:"This file has a size of 0 bytes and cannot be imported to OneDrive.",solution:"Check the file in Google Drive. If it should have content, re-upload the correct file and contact IT to retry.",actionRequired:"Yes — check and re-upload file in Google Drive",retryByIT:"After user fixes file",severity:"Warning",aiGenerated:false},
+
+  // ── MIGRATION JOB ERRORS ────────────────────────────────────────────────────
+  MJOBNOTCOMPLETED:{title:"Migration job not completed",explanation:"The migration job (upload package) was not submitted or the upload did not finish.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MJOBERROR:{title:"Migration job item failed",explanation:"An item-level failure occurred when processing the migration job upload package.",solution:"Check the file name and content for any issues. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MJOBFATALERROR:{title:"Migration job fatal error",explanation:"A fatal error occurred processing the migration job. All items in the package are marked as failed.",solution:"No action needed. IT will resubmit the migration job.",actionRequired:"No — IT will resubmit",retryByIT:"Yes — IT will resubmit",severity:"Error",aiGenerated:false},
+
+  // ── FORMS / SPECIAL ERRORS ──────────────────────────────────────────────────
+  MNOTSUPPORTED:{title:"Google Shared Drive forms not supported",explanation:"Forms migration under Google Shared Drives is not supported by Microsoft Migration Manager.",solution:"Google Forms in Shared Drives cannot be migrated automatically. Download and recreate the form manually in Microsoft Forms.",actionRequired:"Yes — manually recreate in Microsoft Forms",retryByIT:"No",severity:"Warning",aiGenerated:false},
+  MEMPTYUSERMAPPPING:{title:"User identity mapping is empty",explanation:"The user identity mapping for this migration task is empty.",solution:"IT will update the user mapping in Migration Manager and retry.",actionRequired:"No — IT will fix",retryByIT:"Yes — after IT updates mapping",severity:"Error",aiGenerated:false},
+  MEXCEEDFORMSQUOTA:{title:"Microsoft Forms quota exceeded",explanation:"Failed to create new forms because the maximum number of forms (400) has been reached for this account.",solution:"Delete any unused Microsoft Forms from your account to free up quota, then contact IT to retry.",actionRequired:"Yes — delete unused forms to free quota",retryByIT:"After user frees quota",severity:"Error",aiGenerated:false},
+  MNOUSERINFO:{title:"Failed to get Microsoft user info",explanation:"The migration tool failed to retrieve Microsoft 365 user information.",solution:"No action needed. IT will retry.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MGENERALEXCEPTION:{title:"General error migrating forms",explanation:"An error occurred when migrating Google Forms.",solution:"No action needed. IT will retry the forms migration.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+  MQUICKXOR:{title:"File integrity check failed",explanation:"The integrity check failed for a large file — the file may have been corrupted during transfer.",solution:"No action needed for now. IT will retry. If the issue persists, verify the original file in Google Drive is not corrupted.",actionRequired:"No — IT will retry",retryByIT:"Yes — within 48 hours",severity:"Error",aiGenerated:false},
+
+  // ── PERMISSION SET CODES ────────────────────────────────────────────────────
+  PFAIL:{title:"Failed to set permissions",explanation:"The migration tool failed to set permissions on this item in the destination.",solution:"IT will check permissions and retry.",actionRequired:"No — IT will fix",retryByIT:"Yes — IT will fix",severity:"Warning",aiGenerated:false},
+  PFAILUNSUP:{title:"Unsupported permissions not set",explanation:"Some file permissions are not supported and could not be set in OneDrive.",solution:"Some Google Drive permission types are not supported in OneDrive. The file was migrated but without all original permissions. Review and manually set any missing permissions in OneDrive.",actionRequired:"Yes — review permissions in OneDrive",retryByIT:"No",severity:"Warning",aiGenerated:false},
+  PUNSUP:{title:"Unable to set permissions",explanation:"The migration tool was unable to set some permissions on this item.",solution:"Review the permissions in OneDrive and manually set any that are missing.",actionRequired:"Yes — check permissions in OneDrive",retryByIT:"No",severity:"Warning",aiGenerated:false},
+  MDUPLICATEFILE:{title:"Duplicate file conflict",explanation:"A file with the same name already exists in the OneDrive destination.",solution:"Check if the file already exists in your OneDrive. If it is up to date, no action needed. If not, rename one copy and re-upload.",actionRequired:"Yes — check OneDrive for existing file",retryByIT:"No",severity:"Warning",aiGenerated:false},
 };
 
-// Returns solution for a given error code — falls back to MUNKNOWN for new/unknown codes
-function getSolution(resultCode) {
-  return ERROR_SOLUTIONS[resultCode] || {
-    ...ERROR_SOLUTIONS.MUNKNOWN,
-    title: `Unknown error: ${resultCode}`,
+async function getSolutionAsync(code,reason=""){
+  if(SOLUTIONS[code]) return SOLUTIONS[code];
+  const sol=await generateAISolution(code,reason);
+  SOLUTIONS[code]=sol;
+  return sol;
+}
+
+function getSolution(code){
+  return SOLUTIONS[code]||{
+    title:"Unknown error: "+code,
+    explanation:"An unexpected error occurred during migration of this item.",
+    solution:"Please contact IT support with the file name and error code. IT will investigate and resolve manually.",
+    actionRequired:"Yes — contact IT support",
+    retryByIT:"IT will investigate",
+    severity:"Error",
+    aiGenerated:false,
   };
 }
 
-module.exports = { ERROR_SOLUTIONS, getSolution };
+module.exports={SOLUTIONS,getSolution,getSolutionAsync};

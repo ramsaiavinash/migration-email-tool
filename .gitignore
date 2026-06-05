@@ -1,0 +1,5 @@
+node_modules/
+migration-app/backend/node_modules/
+migration-app/frontend/node_modules/
+migration-app/frontend/build/
+migration-app/backend/.env
