@@ -130,3 +130,57 @@
 [2026-06-06 11:35:22.123] [INFO   ] POST /api/chat → 200 | {"duration":"1010ms"}
 [2026-06-06 11:35:53.210] [CHAT   ] Q: Summary of the previous runs | {"replyLen":398,"durationMs":"553ms"}
 [2026-06-06 11:35:53.211] [INFO   ] POST /api/chat → 200 | {"duration":"554ms"}
+[2026-06-06 11:40:18.042] [CHAT   ] Q: hii | {"replyLen":163,"durationMs":"474ms"}
+[2026-06-06 11:40:18.043] [INFO   ] POST /api/chat → 200 | {"duration":"474ms"}
+[2026-06-06 11:40:56.893] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1,"totalErrors":99}
+[2026-06-06 11:40:56.894] [INFO   ] POST /api/preview-migration → 200 | {"duration":"510ms"}
+[2026-06-06 11:41:04.374] [CHAT   ] Q: Summary of this run | {"replyLen":519,"durationMs":"600ms"}
+[2026-06-06 11:41:04.377] [INFO   ] POST /api/chat → 200 | {"duration":"603ms"}
+[2026-06-06 11:42:10.807] [CHAT   ] Q: can you explain the errors in detail | {"replyLen":1594,"durationMs":"1370ms"}
+[2026-06-06 11:42:10.808] [INFO   ] POST /api/chat → 200 | {"duration":"1371ms"}
+[2026-06-06 11:42:41.027] [CHAT   ] Q: Which users need help? | {"replyLen":699,"durationMs":"823ms"}
+[2026-06-06 11:42:41.028] [INFO   ] POST /api/chat → 200 | {"duration":"824ms"}
+[2026-06-06 11:42:49.304] [INFO   ] Processing started — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1}
+[2026-06-06 11:42:50.001] [ERROR  ] Email failed — neal.martin@ssc-fortsmith.com | {"errorCount":99,"error":"getaddrinfo ENOTFOUND defaultde08c40719b9427d9fe8edf254300c.08.environment.api.powerautomate.com"}
+[2026-06-06 11:42:50.303] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T1005142.zip | {"successCount":0,"failedCount":1,"durationMs":"1320ms"}
+[2026-06-06 11:42:50.305] [INFO   ] POST /api/process-migration → 200 | {"duration":"1391ms"}
+[2026-06-06 11:43:18.300] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-06 11:43:18.301] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1308ms"}
+[2026-06-06 11:43:22.704] [INFO   ] Processing started — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1}
+[2026-06-06 11:43:22.726] [ERROR  ] Email failed — kalvin.buckley@woodlandheights.net | {"errorCount":4,"error":"getaddrinfo ENOTFOUND defaultde08c40719b9427d9fe8edf254300c.08.environment.api.powerautomate.com"}
+[2026-06-06 11:43:23.027] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0721421 (1).zip | {"successCount":0,"failedCount":1,"durationMs":"1132ms"}
+[2026-06-06 11:43:23.028] [INFO   ] POST /api/process-migration → 200 | {"duration":"1279ms"}
+[2026-06-06 11:43:45.759] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1,"totalErrors":102}
+[2026-06-06 11:43:45.760] [INFO   ] POST /api/preview-migration → 200 | {"duration":"316ms"}
+[2026-06-06 11:43:50.403] [INFO   ] Processing started — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1}
+[2026-06-06 11:43:50.559] [ERROR  ] Email failed — neal.martin@ssc-fortsmith.com | {"errorCount":102,"error":"getaddrinfo ENOTFOUND defaultde08c40719b9427d9fe8edf254300c.08.environment.api.powerautomate.com"}
+[2026-06-06 11:43:50.860] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0641103.zip | {"successCount":0,"failedCount":1,"durationMs":"651ms"}
+[2026-06-06 11:43:50.861] [INFO   ] POST /api/process-migration → 200 | {"duration":"711ms"}
+[2026-06-06 11:45:39.410] [INFO   ] GET /health → 200 | {"duration":"2ms"}
+[2026-06-06 11:49:01.829] [SYSTEM ] ============================================================
+[2026-06-06 11:49:01.831] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-06 11:49:01.831] [SYSTEM ] AI enabled: true | Error codes loaded: 80
+[2026-06-06 11:49:01.831] [SYSTEM ] ============================================================
+[2026-06-06 11:49:21.373] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-06 11:49:21.377] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2760ms"}
+[2026-06-06 11:49:29.686] [INFO   ] Processing started — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1}
+[2026-06-06 11:49:30.648] [ERROR  ] Email failed — kevin_myers@chs.net | {"errorCount":550,"error":"getaddrinfo ENOTFOUND defaultde08c40719b9427d9fe8edf254300c.08.environment.api.powerautomate.com"}
+[2026-06-06 11:49:30.949] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0629435.zip | {"successCount":0,"failedCount":1,"durationMs":"3432ms"}
+[2026-06-06 11:49:30.950] [INFO   ] POST /api/process-migration → 200 | {"duration":"3730ms"}
+[2026-06-06 11:50:15.187] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-06 11:50:15.188] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2528ms"}
+[2026-06-06 11:50:22.048] [INFO   ] Processing started — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1}
+[2026-06-06 11:50:22.092] [ERROR  ] Email failed — kevin_myers@chs.net | {"errorCount":550,"error":"getaddrinfo ENOTFOUND defaultde08c40719b9427d9fe8edf254300c.08.environment.api.powerautomate.com"}
+[2026-06-06 11:50:22.393] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0629435.zip | {"successCount":0,"failedCount":1,"durationMs":"2204ms"}
+[2026-06-06 11:50:22.394] [INFO   ] POST /api/process-migration → 200 | {"duration":"2509ms"}
+[2026-06-06 11:50:59.786] [INFO   ] GET /health → 200 | {"duration":"1ms"}
+[2026-06-06 11:55:22.124] [SYSTEM ] ============================================================
+[2026-06-06 11:55:22.125] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-06 11:55:22.125] [SYSTEM ] AI enabled: true | Error codes loaded: 80
+[2026-06-06 11:55:22.126] [SYSTEM ] ============================================================
+[2026-06-06 11:55:49.902] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0549243.zip | {"affectedUsers":1,"totalErrors":18}
+[2026-06-06 11:55:49.905] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1082ms"}
+[2026-06-06 11:55:54.482] [INFO   ] Processing started — Migration detailed report-2026-06-06T0549243.zip | {"affectedUsers":1}
+[2026-06-06 11:55:55.307] [SUCCESS] Email sent — roger_bennett@chs.net | {"errorCount":18,"paStatus":202}
+[2026-06-06 11:55:55.607] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0549243.zip | {"successCount":1,"failedCount":0,"durationMs":"1781ms"}
+[2026-06-06 11:55:55.613] [INFO   ] POST /api/process-migration → 200 | {"duration":"1980ms"}
