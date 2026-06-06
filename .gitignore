@@ -3,3 +3,7 @@ migration-app/backend/node_modules/
 migration-app/frontend/node_modules/
 migration-app/frontend/build/
 migration-app/backend/.env
+migration-app/backend/.env
+migration-app/backend/.env
+migration-app/backend/logs/
+migration-app/backend/data/
