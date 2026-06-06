@@ -1182,15 +1182,21 @@ function AIChat({ open, setOpen, C, dark, backendUrl }) {
   const send = async () => {
     if (!input.trim() || busy) return;
     const msg = input.trim(); setInput("");
-    setMsgs(p => [...p, { role:"user", content:msg }]);
+    const nextMsgs = [...msgs, { role:"user", content:msg }];
+    setMsgs(nextMsgs);
     setBusy(true);
     try {
-      const hist = msgs.slice(-8).map(m => ({ role:m.role, content:m.content }));
+      const hist = nextMsgs.slice(-8).map(m => ({ role:m.role, content:m.content }));
       const r = await fetch(`${backendUrl||BACKEND}/api/chat`, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ message:msg, history:hist }) });
       const d = await r.json();
-      setMsgs(p => [...p, { role:"assistant", content:d.reply || "Sorry, I couldn't respond." }]);
-    } catch {
-      setMsgs(p => [...p, { role:"assistant", content:"Connection error — ensure the backend is running on port 3001." }]);
+      if (!r.ok || !d.success) {
+        setMsgs(p => [...p, { role:"assistant", content:`AI error — ${d.error || d.reply || "Unable to get a response."}` }]);
+      } else {
+        setMsgs(p => [...p, { role:"assistant", content:d.reply || "Sorry, I couldn't respond." }]);
+      }
+    } catch (err) {
+      console.error("Chat send failed:", err);
+      setMsgs(p => [...p, { role:"assistant", content:"Connection error — ensure the backend is running and reachable." }]);
     }
     setBusy(false);
   };
