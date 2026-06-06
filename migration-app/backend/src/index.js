@@ -1,85 +1,22 @@
 require("dotenv").config();
-const express=require("express");
-const cors=require("cors");
-const multer=require("multer");
-const axios=require("axios");
-const {parseZip}=require("./zipParser");
-const {buildUserExcelBase64}=require("./excelBuilder");
-const {buildEmailBody}=require("./emailBuilder");
-const {handleChat,updateContext}=require("./chatbot");
-const {getSolutionAsync}=require("./errorSolutions");
-const app=express();
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024}});
+const express=require("express"),cors=require("cors"),multer=require("multer"),axios=require("axios");
+const {parseZip}=require("./zipParser"),{buildUserExcelBase64}=require("./excelBuilder"),{buildEmailBody}=require("./emailBuilder");
+const {handleChat,updateContext}=require("./chatbot"),{getSolutionAsync,SOLUTIONS,getMetadata}=require("./errorSolutions");
+const log=require("./logger");
+const app=express(),upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024}});
 app.use(cors({origin:"*",methods:["GET","POST","OPTIONS"],allowedHeaders:["Content-Type","Authorization"]}));
 app.use(express.json());
-app.get("/health",(req,res)=>{res.json({status:"ok",timestamp:new Date().toISOString(),aiEnabled:!!process.env.GROQ_API_KEY});});
-app.post("/api/preview-migration",upload.single("migrationZip"),async(req,res)=>{
-  try{
-    if(!req.file) return res.status(400).json({error:"No file uploaded"});
-    const {userMap,sourceFile,affectedUsers,totalErrors}=await parseZip(req.file.buffer,req.file.originalname);
-    const preview=Object.entries(userMap).map(([email,errors])=>({userEmail:email,errorCount:errors.length,errorCodes:[...new Set(errors.map(e=>e.ResultCode).filter(Boolean))],preview:errors.slice(0,3).map(e=>({file:e.FullPath?e.FullPath.split("/").pop():"Unknown",code:e.ResultCode,reason:e.FailureReason}))}));
-    updateContext({sourceFile,affectedUsers,totalErrors,users:preview});
-    return res.json({success:true,sourceFile,affectedUsers,totalErrors,users:preview});
-  }catch(err){return res.status(500).json({success:false,error:err.message});}
-});
-app.post("/api/process-migration",upload.single("migrationZip"),async(req,res)=>{
-  try{
-    if(!req.file) return res.status(400).json({success:false,error:"No ZIP file uploaded"});
-    if(!req.file.originalname.endsWith(".zip")) return res.status(400).json({success:false,error:"File must be a .zip"});
-    const powerAutomateUrl=process.env.POWER_AUTOMATE_URL;
-    if(!powerAutomateUrl||powerAutomateUrl.includes("REPLACE_AFTER_PA_SETUP")) return res.status(500).json({success:false,error:"Power Automate URL not configured"});
-    console.log("Processing: "+req.file.originalname);
-    const {userMap,summaryMap,sourceFile,affectedUsers}=await parseZip(req.file.buffer,req.file.originalname);
-    if(affectedUsers===0) return res.status(400).json({success:false,error:"No user errors found in ZIP"});
-    const results=[];
-    for(const [userEmail,errors] of Object.entries(userMap)){
-      const summary=summaryMap[userEmail]||{sourceFile};
-      summary.sourceFile=sourceFile;
-      console.log("  -> "+userEmail+" ("+errors.length+" errors)");
-      for(const err of errors){if(err.ResultCode) await getSolutionAsync(err.ResultCode,err.FailureReason);}
-      const csvBase64=buildUserExcelBase64(userEmail,errors,summary);
-      const csvName=userEmail.split("@")[0]+"_migration_errors.xls";
-      const emailHtml=buildEmailBody(userEmail,errors,summary);
-      const subject="[Migration Update] "+errors.length+" item(s) from your Google Drive migration need attention";
-      try{
-        const payload={userEmail,subject,emailBody:emailHtml,csvAttachment:csvBase64,csvFileName:csvName,errorCount:errors.length,sourceFile,itAdminEmail:process.env.IT_ADMIN_EMAIL||"it-admin@yourorg.com",timestamp:new Date().toISOString()};
-        const paResp=await axios.post(powerAutomateUrl,payload,{headers:{"Content-Type":"application/json"},timeout:30000});
-        results.push({userEmail,errorCount:errors.length,csvFileName:csvName,status:"triggered",paStatus:paResp.status});
-        console.log("  ✓ Triggered for "+userEmail);
-      }catch(paError){
-        console.error("  ✗ PA failed:",paError.message);
-        results.push({userEmail,errorCount:errors.length,csvFileName:csvName,status:"failed",error:paError.message});
-      }
-      await new Promise(r=>setTimeout(r,300));
-    }
-    const successCount=results.filter(r=>r.status==="triggered").length;
-    const failedCount=results.filter(r=>r.status==="failed").length;
-    return res.json({success:true,sourceFile,affectedUsers,successCount,failedCount,results});
-  }catch(err){console.error("Error:",err);return res.status(500).json({success:false,error:err.message});}
-});
-app.post("/api/chat",async(req,res)=>{
-  try{
-    const {message,history=[]}=req.body;
-    if(!message||!message.trim()) return res.status(400).json({success:false,error:"Message required"});
-    console.log("[Chat] "+message.substring(0,60));
-    const result=await handleChat(message.trim(),history);
-    return res.json({success:true,reply:result.message,error:result.error});
-  }catch(err){return res.status(500).json({success:false,error:err.message});}
-});
-app.post("/api/suggest-solution",async(req,res)=>{
-  try{
-    const {errorCode,failureReason}=req.body;
-    if(!errorCode) return res.status(400).json({error:"errorCode required"});
-    const solution=await getSolutionAsync(errorCode,failureReason||"");
-    return res.json({success:true,errorCode,solution});
-  }catch(err){return res.status(500).json({success:false,error:err.message});}
-});
+app.use((req,res,next)=>{const start=Date.now();res.on("finish",()=>{if(!req.path.includes("/api/logs"))log.info(`${req.method} ${req.path} → ${res.statusCode}`,{duration:`${Date.now()-start}ms`});});next();});
+app.get("/health",(req,res)=>res.json({status:"ok",timestamp:new Date().toISOString(),aiEnabled:!!process.env.GROQ_API_KEY,errorCodesLoaded:Object.keys(SOLUTIONS).length}));
+app.get("/api/logs",(req,res)=>{const{level,search,limit=200}=req.query;const entries=log.read({level,search}).slice(-parseInt(limit));const files=log.getLogFiles();res.json({success:true,total:entries.length,entries,files});});
+app.delete("/api/logs",(req,res)=>{log.clearLogs();res.json({success:true,message:"Logs cleared"});});
+app.get("/api/logs/download",(req,res)=>{const lines=log.tail(5000);res.setHeader("Content-Type","text/plain");res.setHeader("Content-Disposition","attachment; filename=migrapulse.log");res.send(lines.join("\n"));});
+app.get("/api/error-codes",(req,res)=>{const{search="",severity="",page=1,limit=20}=req.query;const pg=Math.max(1,parseInt(page)),lim=Math.min(100,Math.max(1,parseInt(limit)));let entries=Object.entries(SOLUTIONS).map(([code,sol])=>({code,title:sol.title,explanation:sol.explanation,solution:sol.solution,actionRequired:sol.actionRequired,retryByIT:sol.retryByIT,severity:sol.severity||"Error",aiGenerated:sol.aiGenerated||false,category:getCategory(code)}));if(search.trim()){const q=search.toLowerCase();entries=entries.filter(e=>e.code.toLowerCase().includes(q)||e.title.toLowerCase().includes(q)||e.explanation.toLowerCase().includes(q));}if(severity)entries=entries.filter(e=>e.severity.toLowerCase()===severity.toLowerCase());entries.sort((a,b)=>a.severity===b.severity?a.code.localeCompare(b.code):a.severity==="Error"?-1:1);const total=entries.length,paginated=entries.slice((pg-1)*lim,pg*lim);res.json({success:true,total,page:pg,limit:lim,pages:Math.ceil(total/lim),lastUpdated:getMetadata().lastUpdated,source:getMetadata().source,codes:paginated});});
+app.get("/api/error-codes/:code",async(req,res)=>{const code=req.params.code.toUpperCase(),solution=await getSolutionAsync(code,"");log.errorCodeLookup(code,!!SOLUTIONS[code]);res.json({success:true,code,...solution,category:getCategory(code)});});
+app.post("/api/preview-migration",upload.single("migrationZip"),async(req,res)=>{try{if(!req.file)return res.status(400).json({error:"No file uploaded"});const{userMap,sourceFile,affectedUsers,totalErrors}=await parseZip(req.file.buffer,req.file.originalname);const preview=Object.entries(userMap).map(([email,errors])=>({userEmail:email,errorCount:errors.length,errorCodes:[...new Set(errors.map(e=>e.ResultCode).filter(Boolean))],preview:errors.slice(0,3).map(e=>({file:e.FullPath?e.FullPath.split("/").pop():"Unknown",code:e.ResultCode,reason:e.FailureReason}))}));updateContext({sourceFile,affectedUsers,totalErrors,users:preview,userMap});log.previewLog(sourceFile,affectedUsers,totalErrors);return res.json({success:true,sourceFile,affectedUsers,totalErrors,users:preview});}catch(err){log.error(`Preview failed: ${err.message}`);return res.status(500).json({success:false,error:err.message});}});
+app.post("/api/process-migration",upload.single("migrationZip"),async(req,res)=>{const startTime=Date.now();try{if(!req.file)return res.status(400).json({success:false,error:"No ZIP file uploaded"});const powerAutomateUrl=process.env.POWER_AUTOMATE_URL;if(!powerAutomateUrl||powerAutomateUrl.includes("REPLACE_AFTER_PA_SETUP"))return res.status(500).json({success:false,error:"Power Automate URL not configured"});const{userMap,summaryMap,sourceFile,affectedUsers}=await parseZip(req.file.buffer,req.file.originalname);if(affectedUsers===0)return res.status(400).json({success:false,error:"No user errors found in ZIP"});log.processStart(sourceFile,affectedUsers);const results=[];for(const[userEmail,errors]of Object.entries(userMap)){const summary=summaryMap[userEmail]||{sourceFile};summary.sourceFile=sourceFile;for(const err of errors){if(err.ResultCode)await getSolutionAsync(err.ResultCode,err.FailureReason);}const csvBase64=buildUserExcelBase64(userEmail,errors,summary),csvName=userEmail.split("@")[0]+"_migration_errors.xls",emailHtml=buildEmailBody(userEmail,errors,summary),subject=`[Migration Update] ${errors.length} item(s) from your Google Drive migration need attention`;try{const payload={userEmail,subject,emailBody:emailHtml,csvAttachment:csvBase64,csvFileName:csvName,errorCount:errors.length,sourceFile,itAdminEmail:process.env.IT_ADMIN_EMAIL||"it-admin@yourorg.com",timestamp:new Date().toISOString()};const paResp=await axios.post(powerAutomateUrl,payload,{headers:{"Content-Type":"application/json"},timeout:30000});results.push({userEmail,errorCount:errors.length,csvFileName:csvName,status:"triggered",paStatus:paResp.status});log.emailSent(userEmail,errors.length,paResp.status);}catch(paError){results.push({userEmail,errorCount:errors.length,csvFileName:csvName,status:"failed",error:paError.message});log.emailFailed(userEmail,errors.length,paError.message);}await new Promise(r=>setTimeout(r,300));}const successCount=results.filter(r=>r.status==="triggered").length,failedCount=results.filter(r=>r.status==="failed").length;log.processComplete(sourceFile,successCount,failedCount,Date.now()-startTime);return res.json({success:true,sourceFile,affectedUsers,successCount,failedCount,results});}catch(err){log.error(`Process failed: ${err.message}`);return res.status(500).json({success:false,error:err.message});}});
+app.post("/api/chat",async(req,res)=>{const start=Date.now();try{const{message,history=[]}=req.body;if(!message?.trim())return res.status(400).json({success:false,error:"Message required"});const result=await handleChat(message.trim(),history);log.chatLog(message,result.message,Date.now()-start);return res.json({success:true,reply:result.message,error:result.error});}catch(err){log.error(`Chat failed: ${err.message}`);return res.status(500).json({success:false,error:err.message});}});
+app.post("/api/suggest-solution",async(req,res)=>{try{const{errorCode,failureReason}=req.body;if(!errorCode)return res.status(400).json({error:"errorCode required"});const solution=await getSolutionAsync(errorCode,failureReason||"");return res.json({success:true,errorCode,solution});}catch(err){return res.status(500).json({success:false,error:err.message});}});
+function getCategory(code){if(code.startsWith("MAUTH"))return"Authentication";if(code.startsWith("MAZURE"))return"Upload / Azure";if(code.startsWith("MEXPORT"))return"Export";if(code.startsWith("MFOLDER")||code.startsWith("MFILE")||code.startsWith("MITEM"))return"File / Path";if(code.startsWith("MPERM")||code==="PFAIL"||code==="PFAILUNSUP"||code==="PUNSUP")return"Permissions";if(code.startsWith("MVERSION"))return"Version";if(code.startsWith("MDUP")||code==="MDUPLICATE")return"Duplicate";if(code.startsWith("MJOB")||code==="MJOBERROR")return"Job Error";return"General";}
 const PORT=process.env.PORT||3001;
-app.listen(PORT,()=>{
-  console.log("\n🚀 MigraPulse Backend running on port "+PORT);
-  console.log("   Health:  http://localhost:"+PORT+"/health");
-  console.log("   Preview: POST /api/preview-migration");
-  console.log("   Process: POST /api/process-migration");
-  console.log("   Chat:    POST /api/chat");
-  console.log("   AI:      "+(process.env.GROQ_API_KEY?"✓ Enabled (Groq)":"✗ Disabled — add GROQ_API_KEY to .env")+"\n");
-});
+app.listen(PORT,()=>{log.startupLog(PORT,!!process.env.GROQ_API_KEY,Object.keys(SOLUTIONS).length);console.log(`\n🚀 MigraPulse Backend — port ${PORT}`);console.log(`   GET  /health`);console.log(`   GET  /api/logs`);console.log(`   GET  /api/logs/download`);console.log(`   DELETE /api/logs`);console.log(`   GET  /api/error-codes`);console.log(`   POST /api/preview-migration`);console.log(`   POST /api/process-migration`);console.log(`   POST /api/chat`);console.log(`   ${Object.keys(SOLUTIONS).length} error codes | Groq: ${process.env.GROQ_API_KEY?"✓":"✗"}\n`);});

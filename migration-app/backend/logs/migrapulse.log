@@ -1,0 +1,45 @@
+[2026-06-06 09:43:42.645] [SYSTEM ] ============================================================
+[2026-06-06 09:43:42.646] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-06 09:43:42.646] [SYSTEM ] AI enabled: true | Error codes loaded: 80
+[2026-06-06 09:43:42.646] [SYSTEM ] ============================================================
+[2026-06-06 09:44:39.920] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0441126.zip | {"affectedUsers":1,"totalErrors":74}
+[2026-06-06 09:44:39.921] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1176ms"}
+[2026-06-06 09:44:49.902] [INFO   ] Processing started — Migration detailed report-2026-06-06T0441126.zip | {"affectedUsers":1}
+[2026-06-06 09:44:50.794] [SUCCESS] Email sent — kari_snyder@chs.net | {"errorCount":74,"paStatus":202}
+[2026-06-06 09:44:51.094] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0441126.zip | {"successCount":1,"failedCount":0,"durationMs":"1954ms"}
+[2026-06-06 09:44:51.095] [INFO   ] POST /api/process-migration → 200 | {"duration":"2150ms"}
+[2026-06-06 09:45:01.614] [CHAT   ] Q: hii | {"replyLen":251,"durationMs":"352ms"}
+[2026-06-06 09:45:01.615] [INFO   ] POST /api/chat → 200 | {"duration":"353ms"}
+[2026-06-06 09:45:14.036] [CHAT   ] Q: Summary of this run | {"replyLen":232,"durationMs":"448ms"}
+[2026-06-06 09:45:14.037] [INFO   ] POST /api/chat → 200 | {"duration":"449ms"}
+[2026-06-06 09:45:37.590] [INFO   ] GET /favicon.ico → 404 | {"duration":"2ms"}
+[2026-06-06 09:57:04.785] [CHAT   ] Q: how can i exportt the data | {"replyLen":167,"durationMs":"272ms"}
+[2026-06-06 09:57:04.786] [INFO   ] POST /api/chat → 200 | {"duration":"273ms"}
+[2026-06-06 10:08:53.650] [CHAT   ] Q: can you explain about this tool | {"replyLen":275,"durationMs":"342ms"}
+[2026-06-06 10:08:53.651] [INFO   ] POST /api/chat → 200 | {"duration":"343ms"}
+[2026-06-06 10:09:20.103] [CHAT   ] Q: it offers solution for unknown errors | {"replyLen":127,"durationMs":"192ms"}
+[2026-06-06 10:09:20.103] [INFO   ] POST /api/chat → 200 | {"duration":"192ms"}
+[2026-06-06 10:09:35.231] [CHAT   ] Q: good | {"replyLen":100,"durationMs":"399ms"}
+[2026-06-06 10:09:35.231] [INFO   ] POST /api/chat → 200 | {"duration":"399ms"}
+[2026-06-06 10:09:51.909] [CHAT   ] Q: no thank you | {"replyLen":40,"durationMs":"268ms"}
+[2026-06-06 10:09:51.909] [INFO   ] POST /api/chat → 200 | {"duration":"268ms"}
+[2026-06-06 10:10:18.223] [CHAT   ] Q: now how many runs completed | {"replyLen":63,"durationMs":"496ms"}
+[2026-06-06 10:10:18.224] [INFO   ] POST /api/chat → 200 | {"duration":"497ms"}
+[2026-06-06 10:10:51.684] [CHAT   ] Q: can you explain me about the activity logs | {"replyLen":164,"durationMs":"279ms"}
+[2026-06-06 10:10:51.684] [INFO   ] POST /api/chat → 200 | {"duration":"280ms"}
+[2026-06-06 10:11:07.436] [CHAT   ] Q: ok thank you | {"replyLen":65,"durationMs":"283ms"}
+[2026-06-06 10:11:07.437] [INFO   ] POST /api/chat → 200 | {"duration":"284ms"}
+[2026-06-06 10:11:18.071] [CHAT   ] Q: go head | {"replyLen":206,"durationMs":"399ms"}
+[2026-06-06 10:11:18.072] [INFO   ] POST /api/chat → 200 | {"duration":"400ms"}
+[2026-06-06 10:11:32.889] [CHAT   ] Q: which errors are ignorable | {"replyLen":171,"durationMs":"383ms"}
+[2026-06-06 10:11:32.891] [INFO   ] POST /api/chat → 200 | {"duration":"385ms"}
+[2026-06-06 10:12:41.746] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1,"totalErrors":99}
+[2026-06-06 10:12:41.748] [INFO   ] POST /api/preview-migration → 200 | {"duration":"391ms"}
+[2026-06-06 10:12:53.217] [CHAT   ] Q: Summary of this run | {"replyLen":183,"durationMs":"572ms"}
+[2026-06-06 10:12:53.218] [INFO   ] POST /api/chat → 200 | {"duration":"573ms"}
+[2026-06-06 10:13:15.673] [CHAT   ] Q: What actions are needed? | {"replyLen":193,"durationMs":"217ms"}
+[2026-06-06 10:13:15.673] [INFO   ] POST /api/chat → 200 | {"duration":"217ms"}
+[2026-06-06 10:13:38.472] [CHAT   ] Q: what are ignorable errors | {"replyLen":128,"durationMs":"335ms"}
+[2026-06-06 10:13:38.472] [INFO   ] POST /api/chat → 200 | {"duration":"335ms"}
+[2026-06-06 10:16:45.785] [CHAT   ] Q: MEXPORTFILERESTRICTED  can you explain in detail | {"replyLen":264,"durationMs":"593ms"}
+[2026-06-06 10:16:45.786] [INFO   ] POST /api/chat → 200 | {"duration":"594ms"}

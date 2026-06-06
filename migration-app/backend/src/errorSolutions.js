@@ -131,4 +131,5 @@ function getSolution(code){
   };
 }
 
-module.exports={SOLUTIONS,getSolution,getSolutionAsync};
+function getMetadata(){return{lastUpdated:"June 2025",source:"https://learn.microsoft.com/en-us/sharepointmigration/mm-cloud-reports",totalCodes:Object.keys(SOLUTIONS).length};}
+module.exports={SOLUTIONS,getSolution,getSolutionAsync,getMetadata};
