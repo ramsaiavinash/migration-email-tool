@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 const ST = { IDLE:"idle", PREV:"prev", PROC:"proc", DONE:"done", ERR:"err" };
@@ -76,9 +76,69 @@ export default function App() {
   const [prog, setProg]       = useState(0);
   const [progTxt, setProgTxt] = useState("");
   const [stats, setStats]     = useState(() => persist.get("mp_stats", emptyStats()));
-  const [expanded, setExpanded] = useState(null);
+  const [backendHistory, setBackendHistory] = useState([]);
+
+  // Load history from backend on mount and merge with localStorage
+  useEffect(() => {
+    fetch(`${BACKEND_LIVE}/api/history`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.history.length > 0) {
+          setBackendHistory(d.history);
+          // Merge backend history with localStorage — backend wins for persistent data
+          const merged = d.history.map(r => ({
+            id: r.id || Date.now(),
+            date: r.date || new Date(r.savedAt).toLocaleString(),
+            file: r.file || r.sourceFile || "Unknown",
+            users: r.users || r.affectedUsers || 0,
+            sent: r.sent || r.successCount || 0,
+            failed: r.failed || r.failedCount || 0,
+            errors: r.errors || 0,
+          }));
+          setStats(prev => {
+            const existingIds = new Set(prev.history.map(h => h.id));
+            const newRuns = merged.filter(r => !existingIds.has(r.id));
+            if (newRuns.length === 0) return prev;
+            const next = { ...prev, history: [...prev.history, ...newRuns].sort((a,b) => b.id - a.id).slice(0,25), runs: prev.runs + newRuns.length };
+            persist.set("mp_stats", next);
+            return next;
+          });
+        }
+      })
+      .catch(() => {}); // Silent fail — backend may not be running
+  }, []);
+  const [expanded, setExpanded]   = useState(null);
+  const [histSearch, setHistSearch]       = useState("");
+  const [emailPreview, setEmailPreview]   = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [excludedUsers, setExcludedUsers] = useState(new Set());
+  const [userSearch, setUserSearch]       = useState("");
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduleTime, setScheduleTime]   = useState("");
+  const [csvResults, setCsvResults]       = useState(null);
+  const [dateFilter, setDateFilter]       = useState("all");
+
+  const filteredHistory = React.useMemo(() => {
+    if (!dateFilter || dateFilter === "all") return stats.history;
+    const now = new Date();
+    return stats.history.filter(r => {
+      const d = new Date(r.date);
+      if (dateFilter === "today") return d.toDateString() === now.toDateString();
+      if (dateFilter === "week") return (now - d) < 7*24*60*60*1000;
+      if (dateFilter === "month") return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+      return true;
+    });
+  }, [stats.history, dateFilter]);
   const [chatOpen, setChatOpen] = useState(false);
   const [sideCollapsed, setSideCollapsed] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const toast = (msg, type="success", duration=3000) => {
+    const id = Date.now();
+    setToasts(p => [...p, { id, msg, type }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), duration);
+  };
   const [orgName, setOrgName]         = useState(() => persist.get("mp_org_name", ""));
   const [orgEmail, setOrgEmail]       = useState(() => persist.get("mp_org_email", ""));
   const [orgProject, setOrgProject]   = useState(() => persist.get("mp_org_project", ""));
@@ -86,6 +146,7 @@ export default function App() {
   const [paUrl, setPaUrl]             = useState(() => persist.get("mp_pa_url", ""));
   const [settingsTab, setSettingsTab] = useState("org");
   const [saveMsg, setSaveMsg]         = useState("");
+  const [emailTheme, setEmailTheme]   = useState(() => persist.get("mp_email_theme", "blue"));
 
   const BACKEND_LIVE = backendUrl || BACKEND;
 
@@ -94,12 +155,25 @@ export default function App() {
     persist.set(key, val);
     setSaveMsg("Saved ✓");
     setTimeout(() => setSaveMsg(""), 2000);
+    toast("Settings saved", "success", 2000);
   }
   const fileRef = useRef();
   const theme = THEMES[themeKey] || THEMES.indigo;
   const C = { ...(dark ? theme.dark : theme.light) };
   // Keep semantic colors consistent
   if (!dark) { C.green=C.green||"#059669"; C.greenBg=C.greenBg||"#ECFDF5"; C.greenBdr=C.greenBdr||"#A7F3D0"; }
+
+  useEffect(() => {
+    const handler = e => {
+      if (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA") return;
+      const map={d:"dashboard",D:"dashboard",p:"process",P:"process",h:"history",H:"history",e:"errorcodes",E:"errorcodes",l:"logs",L:"logs",s:"settings",S:"settings"};
+      if(map[e.key]){setPage(map[e.key]);if(map[e.key]==="process")reset();}
+      if(e.key==="?") toast("D=Dashboard  P=Process  H=History  E=Error Codes  L=Logs  S=Settings","info",5000);
+      if(e.key==="Escape") setShowPreviewModal(false);
+    };
+    window.addEventListener("keydown",handler);
+    return ()=>window.removeEventListener("keydown",handler);
+  }, []);
 
   useEffect(() => {
     document.body.style.background = C.pageBg;
@@ -137,13 +211,18 @@ export default function App() {
       const d = await r.json();
       if (!r.ok || !d.success) throw new Error(d.error || "Preview failed");
       setPreview(d); setStatus(ST.IDLE);
-    } catch(e) { setErrMsg(e.message); setStatus(ST.ERR); }
+    } catch(e) { setErrMsg(e.message); setStatus(ST.ERR); toast(e.message, "error", 4000); }
   };
   const doProcess = async () => {
     if (!file) return;
     setStatus(ST.PROC); setErrMsg("");
     try {
       const fd = new FormData(); fd.append("migrationZip", file);
+      if (excludedUsers.size > 0) fd.append("excludeUsers", JSON.stringify([...excludedUsers]));
+      fd.append("emailTheme", persist.get("mp_email_theme","blue"));
+      fd.append("orgName", persist.get("mp_org_name",""));
+      fd.append("projectName", persist.get("mp_org_project",""));
+      fd.append("supportEmail", persist.get("mp_org_email",""));
       const r = await fetch(`${BACKEND_LIVE}/api/process-migration`, { method:"POST", body:fd });
       const d = await r.json();
       if (!r.ok || !d.success) throw new Error(d.error || "Processing failed");
@@ -156,7 +235,47 @@ export default function App() {
       });
     } catch(e) { setErrMsg(e.message); setStatus(ST.ERR); }
   };
-  const reset = () => { setFile(null); setStatus(ST.IDLE); setPreview(null); setResults(null); setErrMsg(""); setProg(0); setExpanded(null); };
+  const reset = () => { setFile(null); setStatus(ST.IDLE); setPreview(null); setResults(null); setErrMsg(""); setProg(0); setExpanded(null); setExcludedUsers(new Set()); setUserSearch(""); setCsvResults(null); };
+
+  const doPreviewEmail = async () => {
+    if (!file) return;
+    setPreviewLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("migrationZip", file);
+      fd.append("emailTheme", emailTheme || "blue");
+      fd.append("orgName", persist.get("mp_org_name",""));
+      fd.append("projectName", persist.get("mp_org_project",""));
+      fd.append("supportEmail", persist.get("mp_org_email",""));
+      const r = await fetch(`${BACKEND_LIVE}/api/preview-email`, { method:"POST", body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error||"Preview failed");
+      setEmailPreview(d); setShowPreviewModal(true);
+    } catch(e) { toast(e.message, "error"); }
+    setPreviewLoading(false);
+  };
+
+  const doRetryEmail = async (userEmail, errors, sourceFile) => {
+    try {
+      toast(`Retrying email for ${userEmail}…`, "info", 2000);
+      const r = await fetch(`${BACKEND_LIVE}/api/retry-email`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ userEmail, errors, sourceFile }) });
+      const d = await r.json();
+      if (d.success) toast(`✓ Email resent to ${userEmail}`, "success");
+      else toast(`Failed: ${d.error}`, "error");
+    } catch(e) { toast(e.message, "error"); }
+  };
+
+  const exportResultsCSV = (resultsData, sourceFile) => {
+    const rows = [["User Email","Error Count","Excel File","Status","Time"]];
+    resultsData.forEach(r => rows.push([r.userEmail, r.errorCount, r.csvFileName, r.status, new Date().toLocaleTimeString()]));
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url;
+    a.download = `migrapulse_results_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast("Results exported as CSV", "success");
+  };
   const busy = status === ST.PREV || status === ST.PROC;
   const rate = stats.sent + stats.failed > 0 ? Math.round(stats.sent/(stats.sent+stats.failed)*100) : null;
   const sw = sideCollapsed ? 64 : 224;
@@ -166,7 +285,7 @@ export default function App() {
     { id:"process",   label:"Process ZIP", icon:"M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id:"history",   label:"History",     icon:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
     { id:"errorcodes", label:"Error Codes",  icon:"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-    { id:"logs",       label:"Activity Logs", icon:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+    { id:"logs",       label:"Activity Logs", icon:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2", badge:true },
     { id:"settings",   label:"Settings",    icon:"M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
   ];
 
@@ -239,6 +358,16 @@ export default function App() {
                 ))}
               </div>
             )}
+            {/* Today stats */}
+            <div style={{ padding:"4px 8px 6px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+              {stats.history.length > 0 && <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{stats.history.length} run(s)</span>}
+            </div>
+            {/* Keyboard shortcut hint */}
+            <button onClick={()=>toast("D=Dashboard  P=Process  H=History  E=Error Codes  L=Logs  S=Settings  ?=Help","info",5000)}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 8px 8px", background:"none", border:"none", cursor:"pointer", width:"100%", color:"rgba(255,255,255,0.25)", fontSize:10, fontFamily:"inherit" }}>
+              <kbd style={{ background:"rgba(255,255,255,0.1)", padding:"1px 5px", borderRadius:3, fontSize:10 }}>?</kbd> Keyboard shortcuts
+            </button>
             {/* Status */}
             <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 8px 8px" }}>
               <span style={{ width:7, height:7, borderRadius:"50%", background:"#34D399", flexShrink:0, boxShadow:"0 0 0 3px rgba(52,211,153,0.2)" }}/>
@@ -270,10 +399,47 @@ export default function App() {
         {page==="dashboard" && (
           <div className="pg">
             <PageHeader C={C} title="Dashboard" sub={orgName ? `${orgName} — Migration Error Notifications` : "Microsoft 365 Migration Manager — Automated Error Notification"}>
-              <Btn primary C={C} onClick={()=>{setPage("process");reset();}}>
-                <SVG d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" w={14} h={14} stroke="#fff"/> Upload ZIP
-              </Btn>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <select value={dateFilter} onChange={e=>setDateFilter(e.target.value)}
+                  style={{ padding:"8px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:C.canvas, color:C.text, fontSize:12, cursor:"pointer", outline:"none", fontFamily:"inherit" }}>
+                  <option value="all">All time</option>
+                  <option value="today">Today</option>
+                  <option value="week">This week</option>
+                  <option value="month">This month</option>
+                </select>
+                <Btn primary C={C} onClick={()=>{setPage("process");reset();}}>
+                  <SVG d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" w={14} h={14} stroke="#fff"/> Upload ZIP
+                </Btn>
+              </div>
             </PageHeader>
+
+            {/* Last run summary */}
+            {stats.history.length > 0 && (() => {
+              const last = stats.history[0];
+              const rate = last.sent+last.failed>0 ? Math.round(last.sent/(last.sent+last.failed)*100) : 0;
+              return (
+                <div style={{ display:"flex", alignItems:"center", gap:16, padding:"14px 20px", background:C.canvas, border:`1px solid ${C.border}`, borderRadius:10, marginBottom:16, boxShadow:C.shadow }}>
+                  <div style={{ width:40, height:40, borderRadius:10, background:rate===100?C.greenBg:C.accentBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <SVG d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke={rate===100?C.green:C.accent} w={20} h={20}/>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text }}>Last Run — {last.date}</div>
+                    <div style={{ fontSize:12, color:C.textMuted, marginTop:2 }}>{last.file.length>40?last.file.slice(0,40)+"…":last.file}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:16, alignItems:"center" }}>
+                    {[["Users",last.users,C.accent],["Sent",last.sent,C.green],["Failed",last.failed,last.failed>0?C.red:C.textMuted],["Rate",rate+"%",rate===100?C.green:rate>90?C.accent:C.amber]].map(([l,v,col])=>(
+                      <div key={l} style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:18, fontWeight:800, color:col, letterSpacing:"-0.5px" }}>{v}</div>
+                        <div style={{ fontSize:10, color:C.textMuted, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="bp" onClick={()=>{setPage("process");reset();}}>
+                    <SVG d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="#fff" w={13} h={13}/> New Run
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* KPI grid */}
             <div className="kgrid">
@@ -321,7 +487,7 @@ export default function App() {
                 <EmptyState C={C} label="No runs yet">
                   <Btn primary C={C} style={{ marginTop:16 }} onClick={()=>{setPage("process");reset();}}>Process your first ZIP</Btn>
                 </EmptyState>
-              ) : <DataTable rows={stats.history} C={C} dark={dark} numbered cols={["#","Date","Source File","Users","Errors","Sent","Failed","Delivery","Status"]}/>}
+              ) : <DataTable rows={stats.history.filter(r => !histSearch || r.file.toLowerCase().includes(histSearch.toLowerCase()) || r.date.toLowerCase().includes(histSearch.toLowerCase()))} C={C} dark={dark} numbered cols={["#","Date","Source File","Users","Errors","Sent","Failed","Delivery","Status"]}/>}
             </SectionCard>
           </div>
         )}
@@ -398,10 +564,23 @@ export default function App() {
                   )}
                   {file && (
                     <div style={{ display:"flex", gap:10, marginTop:18 }}>
+                      {file && preview && (
+                        <Btn C={C} onClick={doPreviewEmail} disabled={previewLoading || busy}
+                          style={{ border:`1px solid ${C.border}`, background:C.canvas, color:C.text }}>
+                          {previewLoading ? <Spinner C={C}/> : <SVG d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke="currentColor" w={14} h={14}/>}
+                          Preview Email
+                        </Btn>
+                      )}
                       <Btn C={C} onClick={doPreview} disabled={busy}>
                         {status===ST.PREV?<Spinner C={C}/>:<SVG d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 12m-3 0a3 3 0 106 0 3 3 0 00-6 0" stroke="currentColor" w={15} h={15}/>}
                         {status===ST.PREV?"Parsing…":"Preview Errors"}
                       </Btn>
+                      {preview && !busy && (
+                        <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:C.textMuted, padding:"0 4px" }}>
+                          <SVG d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke={C.textMuted} w={13} h={13}/>
+                          Est. {Math.max(1, Math.round(preview.affectedUsers * 1.5))}–{Math.max(2, preview.affectedUsers * 3)} sec
+                        </div>
+                      )}
                       <Btn primary C={C} onClick={doProcess} disabled={!preview||busy} style={{ opacity:!preview||busy?0.45:1 }}>
                         {status===ST.PROC?<Spinner C={C} white/>:<SVG d="M22 2 11 13 M22 2 15 22 11 13 2 9 22 2" stroke="#fff" w={15} h={15}/>}
                         {status===ST.PROC?progTxt:"Send All Emails"}
@@ -432,13 +611,31 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+                  {/* User search */}
+                  <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center" }}>
+                    <div style={{ flex:1, position:"relative" }}>
+                      <SVG d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke={C.textMuted} w={14} h={14} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)" }}/>
+                      <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search users…" className="ci"
+                        style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:7, padding:"7px 10px 7px 32px", fontSize:12, outline:"none", fontFamily:"inherit", background:C.canvasAlt, color:C.text }}/>
+                    </div>
+                    {excludedUsers.size > 0 && (
+                      <span style={{ fontSize:12, color:C.amber, fontWeight:600 }}>
+                        {excludedUsers.size} user(s) excluded
+                      </span>
+                    )}
+                    {excludedUsers.size > 0 && (
+                      <button onClick={()=>setExcludedUsers(new Set())} style={{ fontSize:12, color:C.accent, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+                        Reset
+                      </button>
+                    )}
+                  </div>
                   <div style={{ overflowX:"auto", margin:"0 -20px" }}>
                     <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                      <thead><tr>{["User","Errors","Error Codes","Sample Files",""].map(h=><TH key={h} C={C}>{h}</TH>)}</tr></thead>
+                      <thead><tr>{["","User","Errors","Error Codes","Sample Files",""].map(h=><TH key={h} C={C}>{h}</TH>)}</tr></thead>
                       <tbody>
-                        {preview.users.map((u,i)=>(
-                          <>
-                            <tr key={i} className="tr" style={{ background:expanded===i?C.canvasHover:"" }}>
+                        {preview.users.filter(u=>!userSearch||u.userEmail.toLowerCase().includes(userSearch.toLowerCase())).map((u,i)=>(
+                          <React.Fragment key={i}>
+                            <tr className="tr" style={{ background:expanded===i?C.canvasHover:"" }}>
                               <TD C={C}><div style={{ display:"flex", alignItems:"center", gap:9 }}><Ava email={u.userEmail} C={C}/><span style={{ fontWeight:600, color:C.text }}>{u.userEmail}</span></div></TD>
                               <TD C={C} center><Pill col={C.red} bg={C.redBg}>{u.errorCount}</Pill></TD>
                               <TD C={C}>{u.errorCodes.slice(0,3).map(cd=><CodeTag key={cd} C={C}>{cd.replace("MEXPORTFILEUNSUPPORTEDMIMETYPE","SHORTCUT").replace("MVERSIONDOWNLOAD","VER_DL")}</CodeTag>)}{u.errorCodes.length>3&&<CodeTag C={C}>+{u.errorCodes.length-3}</CodeTag>}</TD>
@@ -446,14 +643,14 @@ export default function App() {
                               <TD C={C}><GhostBtn C={C} onClick={()=>setExpanded(expanded===i?null:i)}>{expanded===i?"▲ Hide":"▼ Details"}</GhostBtn></TD>
                             </tr>
                             {expanded===i && (
-                              <tr key={`ex${i}`}><td colSpan={5} style={{ padding:"14px 20px 18px", background:C.canvasAlt, borderBottom:`1px solid ${C.border}` }}>
+                              <tr><td colSpan={5} style={{ padding:"14px 20px 18px", background:C.canvasAlt, borderBottom:`1px solid ${C.border}` }}>
                                 <Label C={C}>All error codes</Label>
                                 <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:14 }}>{u.errorCodes.map(cd=><CodeTag key={cd} C={C}>{cd}</CodeTag>)}</div>
                                 <Label C={C}>Sample files</Label>
                                 {u.preview.map((p,j)=><div key={j} style={{ display:"flex", gap:10, fontSize:12, padding:"5px 0", borderBottom:`1px solid ${C.border}`, color:C.text, alignItems:"center" }}><CodeTag C={C}>{p.code}</CodeTag><span style={{ color:C.textSub }}>{p.file}</span></div>)}
                               </td></tr>
                             )}
-                          </>
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -493,16 +690,30 @@ export default function App() {
                             <TD C={C}><div style={{ display:"flex", alignItems:"center", gap:9 }}><Ava email={r.userEmail} C={C}/><span style={{ fontWeight:600, color:C.text }}>{r.userEmail}</span></div></TD>
                             <TD C={C} center><Pill col={C.red} bg={C.redBg}>{r.errorCount}</Pill></TD>
                             <TD C={C}><span style={{ fontSize:12, color:C.textMuted, fontFamily:"'Cascadia Code',monospace" }}>{r.csvFileName}</span></TD>
-                            <TD C={C}><StatusTag ok={r.status==="triggered"} C={C}>{r.status==="triggered"?"Sent":"Failed"}</StatusTag></TD>
+                            <TD C={C}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                              <StatusTag ok={r.status==="triggered"} C={C}>{r.status==="triggered"?"Sent":"Failed"}</StatusTag>
+                              {r.status==="failed" && (
+                                <button onClick={()=>doRetryEmail(r.userEmail,[],results.sourceFile)}
+                                  style={{ fontSize:11, fontWeight:700, color:C.accent, background:C.accentBg, border:`1px solid ${C.border}`, borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                                  Retry
+                                </button>
+                              )}
+                            </div>
+                          </TD>
                             <TD C={C}><span style={{ fontSize:12, color:C.textMuted }}>{new Date().toLocaleTimeString()}</span></TD>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <div style={{ display:"flex", gap:10, padding:"16px 22px" }}>
+                  <div style={{ display:"flex", gap:10, padding:"16px 22px", flexWrap:"wrap" }}>
                     <Btn C={C} onClick={reset}><SVG d="M23 4 23 10 17 10 M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" w={14} h={14}/> Process Another</Btn>
                     <Btn primary C={C} onClick={()=>setPage("dashboard")}>View Dashboard</Btn>
+                    <button onClick={()=>exportResultsCSV(results.results, results.sourceFile)}
+                      style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:8, border:`1px solid ${C.greenBdr}`, background:C.greenBg, color:C.green, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                      <SVG d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke={C.green} w={14} h={14}/> Export CSV
+                    </button>
                   </div>
                 </div>
               )}
@@ -533,18 +744,26 @@ export default function App() {
                 )}
               </div>
             </PageHeader>
+            {/* History search */}
+            {stats.history.length > 0 && (
+              <div style={{ position:"relative", marginBottom:16 }}>
+                <SVG d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke={C.textMuted} w={15} h={15} style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}/>
+                <input value={histSearch||""} onChange={e=>setHistSearch(e.target.value)} placeholder="Search by file name or date…" className="ci"
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px 9px 36px", fontSize:13, outline:"none", fontFamily:"inherit", background:C.canvas, color:C.text }}/>
+              </div>
+            )}
             <SectionCard C={C} accent="#8B5CF6" title="All Runs" sub="Complete audit trail — persisted across sessions">
               {stats.history.length===0 ? (
                 <EmptyState C={C} label="No runs recorded">
                   <Btn primary C={C} style={{ marginTop:16 }} onClick={()=>{setPage("process");reset();}}>Process a ZIP</Btn>
                 </EmptyState>
-              ) : <DataTable rows={stats.history} C={C} dark={dark} numbered cols={["#","Date","Source File","Users","Errors","Sent","Failed","Delivery","Status"]}/>}
+              ) : <DataTable rows={filteredHistory} C={C} dark={dark} numbered cols={["#","Date","Source File","Users","Errors","Sent","Failed","Delivery","Status"]}/>}
             </SectionCard>
           </div>
         )}
 
         {/* ERROR CODES */}
-        {page==="errorcodes" && <ErrorCodesPage C={C} dark={dark} backendUrl={BACKEND_LIVE}/>}
+        {page==="errorcodes" && <ErrorCodesPage C={C} dark={dark} backendUrl={BACKEND_LIVE} stats={stats}/>}
 
         {/* LOGS */}
         {page==="logs" && <LogsPage C={C} dark={dark} backendUrl={BACKEND_LIVE}/>}
@@ -559,12 +778,13 @@ export default function App() {
             {/* Tabs */}
             <div style={{ display:"flex", gap:2, marginBottom:20, background:C.canvasAlt, padding:4, borderRadius:10, border:`1px solid ${C.border}`, width:"fit-content" }}>
               {[
-                ["org",     "🏢  Organization"],
-                ["connect", "🔗  Connections"],
-                ["notify",  "📧  Notifications"],
-                ["appear",  "🎨  Appearance"],
-                ["guide",   "📖  Setup Guide"],
-                ["status",  "✅  System Status"],
+                ["org",      "🏢  Organization"],
+                ["connect",  "🔗  Connections"],
+                ["notify",   "📧  Notifications"],
+                ["template", "✉️  Email Template"],
+                ["appear",   "🎨  Appearance"],
+                ["guide",    "📖  Setup Guide"],
+                ["status",   "✅  System Status"],
               ].map(([id, label]) => (
                 <button key={id} onClick={() => setSettingsTab(id)} style={{ padding:"8px 16px", borderRadius:7, border:"none", background:settingsTab===id?C.canvas:"transparent", color:settingsTab===id?C.text:C.textMuted, fontWeight:settingsTab===id?700:500, fontSize:13, cursor:"pointer", fontFamily:"inherit", transition:"all .15s", boxShadow:settingsTab===id?C.shadow:"none" }}>
                   {label}
@@ -710,6 +930,91 @@ export default function App() {
                     <div style={{ padding:"12px 16px", background:C.amberBg, border:`1px solid ${C.amberBdr}`, borderRadius:8, fontSize:12, color:C.amber }}>
                       <strong>Note:</strong> The IT_ADMIN_EMAIL in backend .env is what actually gets used when sending emails. The value above is stored locally for reference.
                     </div>
+                    <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14, marginTop:4 }}>
+                      <Label C={C}>Microsoft Teams Webhook (optional)</Label>
+                      <input defaultValue={localStorage.getItem("mp_teams_webhook")||""} onChange={e=>localStorage.setItem("mp_teams_webhook",e.target.value)}
+                        placeholder="https://yourorg.webhook.office.com/webhookb2/…" className="ci"
+                        style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px", fontSize:12, outline:"none", fontFamily:"'Cascadia Code',monospace", background:C.canvasAlt, color:C.text, marginTop:6 }}/>
+                      <div style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>If set, a summary card will be posted to your Teams channel after each migration run.</div>
+                    </div>
+                  </div>
+                </SectionCard>
+              </div>
+            )}
+
+            {/* ── EMAIL TEMPLATE TAB ── */}
+            {settingsTab==="template" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                <SectionCard C={C} accent={C.blue} title="Email Template Settings" sub="Customize what users see in their notification emails">
+                  <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                    {[
+                      ["Email Subject Line", "mp_email_subject", localStorage.getItem("mp_email_subject")||"[Migration Update] {count} item(s) from your Google Drive migration need attention", "Use {count} for error count, {user} for username"],
+                      ["Support Email Shown in Email", "mp_support_email", localStorage.getItem("mp_support_email")||"", "Shown in the email footer as contact address"],
+                      ["Email Footer Text", "mp_email_footer", localStorage.getItem("mp_email_footer")||"Microsoft 365 Migration Team · Automated by MigraPulse", "Shown at the bottom of every email"],
+                    ].map(([lbl,key,val,desc]) => (
+                      <div key={key}>
+                        <Label C={C}>{lbl}</Label>
+                        <input defaultValue={val} onChange={e=>{ localStorage.setItem(key,e.target.value); setSaveMsg("Saved ✓"); setTimeout(()=>setSaveMsg(""),1500); }}
+                          className="ci" style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px", fontSize:13, outline:"none", fontFamily:"inherit", background:C.canvasAlt, color:C.text, marginTop:6 }}/>
+                        <div style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>{desc}</div>
+                      </div>
+                    ))}
+                    <div style={{ padding:"12px 16px", background:C.infoBg, border:`1px solid ${C.infoBdr}`, borderRadius:8, fontSize:12, color:C.blue }}>
+                      <strong>Note:</strong> These settings are saved in your browser. To apply them to emails, the backend emailBuilder.js also needs to read these values from the request payload. Currently the template uses hardcoded professional defaults.
+                    </div>
+                    <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14, marginTop:4 }}>
+                      <Label C={C}>Email Color Theme</Label>
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginTop:10 }}>
+                        {[
+                          { key:"blue",   name:"Microsoft Blue",  header:"#0078D4", accent:"#1D4ED8", btn:"#0078D4" },
+                          { key:"indigo", name:"Indigo",          header:"#4F46E5", accent:"#6366F1", btn:"#4F46E5" },
+                          { key:"green",  name:"Emerald",         header:"#065F46", accent:"#059669", btn:"#059669" },
+                          { key:"slate",  name:"Slate",           header:"#1E293B", accent:"#334155", btn:"#1E293B" },
+                          { key:"purple", name:"Purple",          header:"#5B21B6", accent:"#7C3AED", btn:"#7C3AED" },
+                          { key:"teal",   name:"Teal",            header:"#0F766E", accent:"#0D9488", btn:"#0F766E" },
+                          { key:"red",    name:"Corporate Red",   header:"#991B1B", accent:"#DC2626", btn:"#B91C1C" },
+                          { key:"amber",  name:"Amber",           header:"#92400E", accent:"#D97706", btn:"#B45309" },
+                        ].map(t => (
+                          <button key={t.key} onClick={()=>{ setEmailTheme(t.key); persist.set("mp_email_theme",t.key); toast(`Email theme set to ${t.name}`,"success",1500); }}
+                            style={{ padding:"10px 12px", borderRadius:8, border:`2px solid ${emailTheme===t.key?t.accent:C.border}`, background:emailTheme===t.key?C.accentBg:C.canvasAlt, cursor:"pointer", fontFamily:"inherit", transition:"all .15s", textAlign:"left" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                              <div style={{ width:20, height:20, borderRadius:4, background:`linear-gradient(135deg,${t.header},${t.accent})` }}/>
+                              <span style={{ fontSize:12, fontWeight:emailTheme===t.key?700:400, color:emailTheme===t.key?C.accent:C.text }}>{t.name}</span>
+                              {emailTheme===t.key&&<span style={{ marginLeft:"auto", color:C.accent, fontSize:12 }}>✓</span>}
+                            </div>
+                            <div style={{ display:"flex", gap:3 }}>
+                              {[t.header,t.accent,"#F59E0B","#059669","#DC2626"].map((col,i)=>(
+                                <div key={i} style={{ height:6, flex:1, borderRadius:2, background:col }}/>
+                              ))}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ marginTop:10, padding:"10px 14px", background:C.canvasAlt, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, color:C.textMuted }}>
+                        Selected: <strong style={{ color:C.text }}>{emailTheme}</strong> theme · Header bar, action section, and button colors will use this palette in emails.
+                      </div>
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard C={C} accent={C.green} title="Email Content Preview" sub="What each section of the email contains">
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {[
+                      ["🔵 Header", "Microsoft 365 Migration Manager branding + ACTION REQUIRED badge"],
+                      ["📊 Stats", "3 boxes: Items Failed / Your Action / IT Handles"],
+                      ["🟡 User Action Section", "Amber — error types that need user attention, with count and instructions"],
+                      ["🔵 IT Handles Section", "Blue — errors IT will fix automatically in 48 hours"],
+                      ["📎 Excel Attachment Notice", "Reminder that full file list is in the attached Excel report"],
+                      ["📋 Next Steps", "Numbered action list for the user"],
+                      ["📞 Contact", "IT admin email for questions"],
+                    ].map(([title, desc]) => (
+                      <div key={title} style={{ display:"flex", gap:12, padding:"10px 14px", background:C.canvasAlt, border:`1px solid ${C.border}`, borderRadius:8 }}>
+                        <span style={{ fontSize:14, flexShrink:0 }}>{title.split(" ")[0]}</span>
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{title.slice(3)}</div>
+                          <div style={{ fontSize:12, color:C.textMuted, marginTop:2 }}>{desc}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </SectionCard>
               </div>
@@ -805,7 +1110,7 @@ export default function App() {
                 <SectionCard C={C} accent={C.green} title="System Status" sub="Live status of all MigraPulse services">
                   <div>
                     {[
-                      ["Backend API",         `Node.js · ${BACKEND_LIVE}`],
+                      ["Backend API v2.0",    `Node.js · ${BACKEND_LIVE}`],
                       ["Power Automate",      "HTTP trigger · Outlook delivery"],
                       ["AI Assistant",        "Groq llama-3.3-70b · Free · 14,400 req/day"],
                       ["Excel Reports",       "HTML-based colored reports per user"],
@@ -847,15 +1152,30 @@ export default function App() {
 
       </main>
 
+      {/* ── EMAIL PREVIEW MODAL ── */}
+      {showPreviewModal && emailPreview && (
+        <EmailPreviewModal data={emailPreview} onClose={()=>setShowPreviewModal(false)} C={C}/>
+      )}
+
+      {/* ── TOAST NOTIFICATIONS ── */}
+      <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", zIndex:500, display:"flex", flexDirection:"column", gap:8, alignItems:"center", pointerEvents:"none" }}>
+        {toasts.map(t=>(
+          <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 18px", borderRadius:10, fontFamily:"'Plus Jakarta Sans',sans-serif", fontSize:13, fontWeight:600, color:"#fff", boxShadow:"0 4px 20px rgba(0,0,0,0.2)", animation:"toastIn 0.3s ease", background:t.type==="success"?"#059669":t.type==="error"?"#DC2626":t.type==="warn"?"#D97706":"#6366F1", minWidth:220, maxWidth:380, textAlign:"center" }}>
+            <span style={{ fontSize:16 }}>{t.type==="success"?"✓":t.type==="error"?"✗":t.type==="warn"?"⚠":"ℹ"}</span>
+            {t.msg}
+          </div>
+        ))}
+      </div>
+
       {/* CHAT */}
-      <AIChat open={chatOpen} setOpen={setChatOpen} C={C} dark={dark} backendUrl={BACKEND_LIVE}/>
+      <AIChat open={chatOpen} setOpen={setChatOpen} C={C} dark={dark} backendUrl={BACKEND_LIVE} stats={stats} preview={preview}/>
     </div>
   );
 }
 
 
 /* ── ERROR CODES PAGE ───────────────────────────────────────────────────── */
-function ErrorCodesPage({ C, dark, backendUrl }) {
+function ErrorCodesPage({ C, dark, backendUrl, stats={} }) {
   const [codes, setCodes]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -866,7 +1186,13 @@ function ErrorCodesPage({ C, dark, backendUrl }) {
   const [total, setTotal]       = useState(0);
   const [pages, setPages]       = useState(1);
   const [meta, setMeta]         = useState(null);
-  const [expanded, setExpanded] = useState(null);
+  const [expanded, setExpanded]   = useState(null);
+  const [histSearch, setHistSearch]       = useState("");
+  const [emailPreview, setEmailPreview]   = useState(null);
+  const [userSearch, setUserSearch]       = useState("");
+  const [scheduleTime, setScheduleTime]   = useState("");
+  const [csvResults, setCsvResults]       = useState(null);
+
   const LIMIT = 15;
 
   const fetchCodes = useCallback(async (p = 1) => {
@@ -972,7 +1298,12 @@ function ErrorCodesPage({ C, dark, backendUrl }) {
                       <>
                         <tr key={i} className="tr" style={{ background: isOpen ? C.canvasHover : "" }}>
                           <TD C={C}>
-                            <code style={{ fontFamily:"'Cascadia Code',Consolas,monospace", fontSize:11, fontWeight:700, color:C.accent, background:C.accentBg, padding:"3px 8px", borderRadius:5, whiteSpace:"nowrap" }}>{ec.code}</code>
+                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                              <code style={{ fontFamily:"'Cascadia Code',Consolas,monospace", fontSize:11, fontWeight:700, color:C.accent, background:C.accentBg, padding:"3px 8px", borderRadius:5, whiteSpace:"nowrap" }}>{ec.code}</code>
+                              <button onClick={()=>{ navigator.clipboard.writeText(ec.code); toast(`Copied ${ec.code}`, "info", 1500); }} style={{ background:"none", border:"none", cursor:"pointer", color:C.textMuted, padding:2, display:"flex", opacity:0.6, transition:"opacity .15s" }} className="ibtn" title="Copy code">
+                                <SVG d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke="currentColor" w={13} h={13}/>
+                              </button>
+                            </div>
                           </TD>
                           <TD C={C}><span style={{ fontWeight:600, color:C.text }}>{ec.title}</span></TD>
                           <TD C={C}><span style={{ fontSize:11, color:C.textMuted, background:C.canvasAlt, padding:"2px 8px", borderRadius:5, border:`1px solid ${C.border}`, whiteSpace:"nowrap" }}>{ec.category}</span></TD>
@@ -1171,114 +1502,290 @@ function LogsPage({ C, dark, backendUrl }) {
   );
 }
 
-/* ── AI CHAT ─────────────────────────────────────────────────────────────── */
-function AIChat({ open, setOpen, C, dark, backendUrl }) {
-  const [msgs, setMsgs]   = useState([{ role:"assistant", content:"Hello! I'm **MigraPulse AI**, your migration assistant powered by Groq.\n\nI can help with:\n• Analyzing your migration errors\n• Explaining Microsoft error codes\n• Recommending actions per user\n• Answering general migration questions\n\nUpload and preview a ZIP to get started with your data!" }]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy]   = useState(false);
-  const endRef = useRef();
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
-  const send = async () => {
-    if (!input.trim() || busy) return;
-    const msg = input.trim(); setInput("");
-    const nextMsgs = [...msgs, { role:"user", content:msg }];
-    setMsgs(nextMsgs);
+/* ── EMAIL PREVIEW MODAL ────────────────────────────────────────────────── */
+function EmailPreviewModal({ data, onClose, C }) {
+  if (!data) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }} onClick={onClose}>
+      <div style={{ background:C.canvas, borderRadius:14, overflow:"hidden", width:"100%", maxWidth:700, maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:C.shadowLg }} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:`1px solid ${C.border}`, background:C.canvasAlt }}>
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Email Preview</div>
+            <div style={{ fontSize:12, color:C.textMuted, marginTop:2 }}>
+              To: <strong>{data.userEmail}</strong> · {data.errorCount} error(s) · {data.sourceFile}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <span style={{ fontSize:11, color:C.textMuted, padding:"4px 10px", background:C.canvasAlt, border:`1px solid ${C.border}`, borderRadius:6 }}>
+              This is how the email will look to the user
+            </span>
+            <button onClick={onClose} style={{ background:C.canvasAlt, border:`1px solid ${C.border}`, borderRadius:7, cursor:"pointer", width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", color:C.textMuted }}>
+              <SVG d="M18 6 6 18 M6 6 18 18" stroke="currentColor" w={14} h={14}/>
+            </button>
+          </div>
+        </div>
+        {/* Email iframe */}
+        <div style={{ flex:1, overflow:"auto", background:"#f3f4f6", padding:20 }}>
+          <div style={{ background:"white", borderRadius:8, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.1)" }}>
+            <iframe
+              srcDoc={data.html}
+              style={{ width:"100%", height:600, border:"none", display:"block" }}
+              title="Email Preview"
+              sandbox="allow-same-origin"/>
+          </div>
+        </div>
+        {/* Footer */}
+        <div style={{ padding:"12px 20px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontSize:12, color:C.textMuted }}>Excel report will be attached separately</span>
+          <button onClick={onClose} style={{ padding:"8px 20px", borderRadius:8, background:`linear-gradient(135deg,#6366F1,#8B5CF6)`, color:"#fff", border:"none", cursor:"pointer", fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
+            Close Preview
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── AI CHAT ─────────────────────────────────────────────────────────────── */
+function AIChat({ open, setOpen, C, dark, backendUrl, stats, preview }) {
+  const [expanded, setExpanded] = useState(false);
+  const [msgs, setMsgs]       = useState([]);
+  const [input, setInput]     = useState("");
+  const [busy, setBusy]       = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const endRef  = useRef();
+  const inputRef = useRef();
+
+  // Initialize with context-aware greeting
+  useEffect(() => {
+    const welcome = preview
+      ? `Hello! I can see you've loaded **${preview.sourceFile}** with **${preview.affectedUsers} user(s)** and **${preview.totalErrors.toLocaleString()} errors**.\n\nWhat would you like to know about this migration run?`
+      : `Hello! I'm **MigraPulse AI**, your migration assistant.\n\nI can help you:\n• Analyze migration errors and file counts\n• Explain Microsoft error codes\n• Recommend actions per user\n• Answer questions about the MigraPulse tool\n\nUpload and preview a ZIP to get started with your data!`;
+    setMsgs([{ role:"assistant", content:welcome, time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) }]);
+  }, [preview?.sourceFile]);
+
+  // Auto-scroll
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs, isTyping]);
+
+  // Focus input when opened
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 100); }, [open]);
+
+  const send = async (msg) => {
+    const text = (msg || input).trim();
+    if (!text || busy) return;
+    setInput("");
+    const userMsg = { role:"user", content:text, time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}) };
+    setMsgs(p => [...p, userMsg]);
     setBusy(true);
+    setIsTyping(true);
+
+    // Add small delay to show typing indicator
+    await new Promise(r => setTimeout(r, 600));
+
     try {
-      const hist = nextMsgs.slice(-8).map(m => ({ role:m.role, content:m.content }));
-      const r = await fetch(`${backendUrl||BACKEND}/api/chat`, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ message:msg, history:hist }) });
+      const history = msgs.slice(-10).map(m => ({ role:m.role, content:m.content }));
+      const r = await fetch(`${backendUrl||BACKEND}/api/chat`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          message: text,
+          history,
+          context: {
+            orgName:    localStorage.getItem("mp_org_name") || "",
+            projectName: localStorage.getItem("mp_org_project") || "",
+            totalRuns:  stats?.runs || 0,
+            totalSent:  stats?.sent || 0,
+            totalErrors: stats?.errors || 0,
+          }
+        })
+      });
       const d = await r.json();
-      if (!r.ok || !d.success) {
-        setMsgs(p => [...p, { role:"assistant", content:`AI error — ${d.error || d.reply || "Unable to get a response."}` }]);
-      } else {
-        setMsgs(p => [...p, { role:"assistant", content:d.reply || "Sorry, I couldn't respond." }]);
-      }
-    } catch (err) {
-      console.error("Chat send failed:", err);
-      setMsgs(p => [...p, { role:"assistant", content:"Connection error — ensure the backend is running and reachable." }]);
+      setIsTyping(false);
+      setMsgs(p => [...p, {
+        role:"assistant",
+        content: d.reply || "Sorry, I couldn't respond.",
+        time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}),
+        error: d.error
+      }]);
+    } catch {
+      setIsTyping(false);
+      setMsgs(p => [...p, { role:"assistant", content:"Connection error — ensure the backend is running.", time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}), error:true }]);
     }
     setBusy(false);
   };
-  const Q = ["Summary of this run","Explain the top errors","What actions are needed?","Which users need help?"];
+
+  // Dynamic quick buttons based on context
+  const quickBtns = preview
+    ? ["Summary of this run", "Which users need help?", "Explain the top errors", "What actions are needed?", "How many files per error?"]
+    : ["How does MigraPulse work?", "What themes are available?", "How do I set up Power Automate?", "What error codes are supported?"];
+
   const fmt = t => {
     if (!t) return "";
-    let html = t
-      // Escape HTML first
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      // Bold **text**
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic *text*
-      .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
-      // Inline code `code`
-      .replace(/`([^`]+)`/g, "<code style=\"background:rgba(99,102,241,0.12);padding:1px 5px;border-radius:4px;font-family:'Cascadia Code',monospace;font-size:11px;\">$1</code>")
-      // Bullet points — handle *, -, • at start of line
-      .replace(/^[\*\-•\+]\s+(.+)$/gm, "<li>$1</li>")
-      // Numbered lists
-      .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-      // Wrap consecutive <li> in <ul>
-      .replace(/(<li>.*<\/li>)/gs, m => "<ul style=\"margin:8px 0 8px 4px;padding-left:16px;display:flex;flex-direction:column;gap:4px;\">" + m + "</ul>")
-      // Headers ### ## #
-      .replace(/^#{3}\s+(.+)$/gm, "<div style=\"font-size:12px;font-weight:700;color:inherit;margin:10px 0 5px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.7;\">$1</div>")
-      .replace(/^#{1,2}\s+(.+)$/gm, "<div style=\"font-size:14px;font-weight:700;margin:10px 0 6px;\">$1</div>")
-      // Horizontal rules
-      .replace(/^---$/gm, "<hr style=\"border:none;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;\"/>")
-      // Line breaks — double newline = paragraph break
-      .replace(/\n\n/g, "<br/><br/>")
-      // Single newline
-      .replace(/\n/g, "<br/>");
-    return html;
+    return t
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g,"<em>$1</em>")
+      .replace(/`([^`]+)`/g,`<code style="background:rgba(99,102,241,0.15);padding:1px 5px;border-radius:4px;font-family:'Cascadia Code',monospace;font-size:11px;">$1</code>`)
+      .replace(/^\s*[•\-\*\+]\s+(.+)$/gm,"<li>$1</li>")
+      .replace(/^(\d+)\.\s+(.+)$/gm,"<li><strong>$1.</strong> $2</li>")
+      .replace(/(<li>.*<\/li>)/gs, m=>`<ul style="margin:6px 0 6px 4px;padding-left:16px;display:flex;flex-direction:column;gap:3px;">${m}</ul>`)
+      .replace(/^###\s+(.+)$/gm,`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.65;margin:8px 0 4px;">$1</div>`)
+      .replace(/^##\s+(.+)$/gm,`<div style="font-size:13px;font-weight:700;margin:8px 0 4px;">$1</div>`)
+      .replace(/\n\n/g,"<br/><br/>")
+      .replace(/\n/g,"<br/>");
   };
+
+  const ACCENT_GRAD = "linear-gradient(135deg,#6366F1,#8B5CF6)";
 
   return (
     <>
-      <button onClick={()=>setOpen(v=>!v)} className="fab" style={{ position:"fixed", bottom:24, right:24, width:54, height:54, borderRadius:"50%", background:"linear-gradient(135deg,#6366F1,#8B5CF6)", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, boxShadow:"0 4px 20px rgba(99,102,241,0.5)" }}>
-        {open?<SVG d="M18 6 6 18 M6 6 18 18" stroke="#fff" w={18} h={18} sw={2.5}/>:<SVG d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#fff" w={19} h={19}/>}
-        {!open&&<span style={{ position:"absolute", top:-2, right:-2, background:"#EF4444", color:"#fff", fontSize:9, fontWeight:900, padding:"2px 5px", borderRadius:8, border:`2px solid ${C.pageBg}` }}>AI</span>}
+      {/* FAB button */}
+      <button onClick={()=>setOpen(v=>!v)} className="fab"
+        style={{ position:"fixed", bottom:24, right:24, width:54, height:54, borderRadius:"50%",
+          background: ACCENT_GRAD, border:"none", cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:300,
+          boxShadow:"0 4px 20px rgba(99,102,241,0.5)" }}>
+        {open
+          ? <SVG d="M18 6 6 18 M6 6 18 18" stroke="#fff" w={18} h={18} sw={2.5}/>
+          : <SVG d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#fff" w={19} h={19}/>
+        }
+        {!open && (
+          <>
+            {/* AI badge */}
+            <span style={{ position:"absolute", top:-2, right:-2, background:"#EF4444", color:"#fff", fontSize:9, fontWeight:900, padding:"2px 5px", borderRadius:8, border:`2px solid ${C.pageBg}` }}>AI</span>
+            {/* Pulse ring when data loaded */}
+            {preview && <span style={{ position:"absolute", width:"100%", height:"100%", borderRadius:"50%", border:"2px solid rgba(99,102,241,0.4)", animation:"fabPulse 2s infinite" }}/>}
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="cpanel" style={{ position:"fixed", bottom:90, right:24, width:376, background:C.canvas, borderRadius:16, border:`1px solid ${C.border}`, zIndex:300, display:"flex", flexDirection:"column", overflow:"hidden", maxHeight:560, boxShadow:C.shadowLg }}>
-          <div style={{ background:"linear-gradient(135deg,#1E1B4B,#312E81)", padding:"15px 17px", display:"flex", alignItems:"center", gap:11 }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:"linear-gradient(135deg,#6366F1,#8B5CF6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        <div className="cpanel" style={{ position:"fixed",
+          bottom: expanded ? 0 : 90,
+          right: expanded ? 0 : 24,
+          width: expanded ? "100vw" : 390,
+          height: expanded ? "100vh" : "auto",
+          maxHeight: expanded ? "100vh" : 560,
+          background:C.canvas, borderRadius: expanded ? 0 : 16,
+          border:`1px solid ${C.border}`,
+          zIndex:300, display:"flex", flexDirection:"column", overflow:"hidden",
+          boxShadow:C.shadowLg, transition:"all 0.25s cubic-bezier(.4,0,.2,1)" }}>
+
+          {/* Header */}
+          <div style={{ background:"linear-gradient(135deg,#1E1B4B,#312E81)", padding:"14px 16px", display:"flex", alignItems:"center", gap:11 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:ACCENT_GRAD, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, position:"relative" }}>
               <SVG d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" stroke="#fff" w={17} h={17}/>
+              {/* Online dot */}
+              <span style={{ position:"absolute", bottom:-2, right:-2, width:10, height:10, borderRadius:"50%", background:"#4ADE80", border:"2px solid #1E1B4B" }}/>
             </div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:800, color:"#F8FAFC", letterSpacing:"-0.2px" }}>MigraPulse AI</div>
-              <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
-                <span style={{ width:6, height:6, borderRadius:"50%", background:"#34D399" }}/>Groq llama-3.3-70b · Free tier
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", marginTop:2, display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:"#4ADE80", display:"inline-block" }}/>
+                {busy ? "Thinking…" : "Groq llama-3.3-70b · Online"}
               </div>
             </div>
-            <button onClick={()=>setOpen(false)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:7, cursor:"pointer", width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.6)" }} className="ibtn">
+            {/* Context indicator */}
+            {preview && (
+              <div style={{ background:"rgba(99,102,241,0.3)", borderRadius:6, padding:"3px 8px", fontSize:10, fontWeight:700, color:"#C7D2FE", border:"1px solid rgba(99,102,241,0.4)" }}>
+                📊 Data loaded
+              </div>
+            )}
+            {/* Expand / Collapse button */}
+            <button onClick={()=>setExpanded(v=>!v)} title={expanded?"Collapse":"Expand chat"} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:7, cursor:"pointer", width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.6)", marginLeft:4, transition:"all .15s" }} className="ibtn">
+              {expanded
+                ? <SVG d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 0 2-2h3M3 16h3a2 2 0 0 0 2 2v3" stroke="currentColor" w={13} h={13}/>
+                : <SVG d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" w={13} h={13}/>
+              }
+            </button>
+            <button onClick={()=>setOpen(false)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:7, cursor:"pointer", width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.6)", marginLeft:4 }} className="ibtn">
               <SVG d="M18 6 6 18 M6 6 18 18" stroke="currentColor" w={13} h={13}/>
             </button>
           </div>
 
-          <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 10px", display:"flex", flexDirection:"column", gap:10, background:C.canvasAlt }}>
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding: expanded ? "20px 32px 12px" : "12px 12px 8px", display:"flex", flexDirection:"column", gap:10, background:C.canvasAlt, maxWidth: expanded ? 900 : "100%", width:"100%", margin: expanded ? "0 auto" : 0, boxSizing:"border-box" }}>
             {msgs.map((m,i) => (
               <div key={i} style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start", gap:8, alignItems:"flex-end" }}>
-                {m.role==="assistant" && <div style={{ width:27, height:27, borderRadius:8, background:"linear-gradient(135deg,#6366F1,#8B5CF6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><SVG d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" stroke="#fff" w={11} h={11}/></div>}
-                <div style={{ maxWidth:"85%", padding:"10px 14px", borderRadius:m.role==="user"?"12px 12px 2px 12px":"12px 12px 12px 2px", background:m.role==="user"?"linear-gradient(135deg,#6366F1,#8B5CF6)":C.canvas, color:m.role==="user"?"#fff":C.text, fontSize:13, lineHeight:1.65, border:m.role==="assistant"?`1px solid ${C.border}`:"none", boxShadow:m.role==="user"?"0 2px 8px rgba(99,102,241,0.3)":C.shadow, wordBreak:"break-word" }} dangerouslySetInnerHTML={{ __html:fmt(m.content) }}/>
+                {m.role==="assistant" && (
+                  <div style={{ width:28, height:28, borderRadius:8, background:ACCENT_GRAD, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <SVG d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" stroke="#fff" w={12} h={12}/>
+                  </div>
+                )}
+                <div style={{ maxWidth: expanded ? "60%" : "82%", display:"flex", flexDirection:"column", gap:3, alignItems:m.role==="user"?"flex-end":"flex-start" }}>
+                  <div style={{ padding:"10px 14px",
+                    borderRadius: m.role==="user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                    background: m.role==="user" ? ACCENT_GRAD : m.error ? C.redBg : C.canvas,
+                    color: m.role==="user" ? "#fff" : m.error ? C.red : C.text,
+                    fontSize:13, lineHeight:1.65,
+                    border: m.role==="assistant" ? `1px solid ${m.error?C.redBdr:C.border}` : "none",
+                    boxShadow: m.role==="user" ? "0 2px 8px rgba(99,102,241,0.3)" : C.shadow,
+                    wordBreak:"break-word" }}
+                    dangerouslySetInnerHTML={{ __html: fmt(m.content) }}/>
+                  {/* Timestamp */}
+                  <span style={{ fontSize:10, color:C.textMuted, padding:"0 4px" }}>{m.time}</span>
+                </div>
               </div>
             ))}
-            {busy && (
+
+            {/* Typing indicator */}
+            {isTyping && (
               <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-                <div style={{ width:27, height:27, borderRadius:8, background:"linear-gradient(135deg,#6366F1,#8B5CF6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><SVG d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" stroke="#fff" w={11} h={11}/></div>
-                <div style={{ padding:"10px 14px", background:C.canvas, borderRadius:"12px 12px 12px 2px", border:`1px solid ${C.border}` }}>
-                  <div style={{ display:"flex", gap:4 }}>{[0,1,2].map(i=><span key={i} style={{ width:6, height:6, borderRadius:"50%", background:C.textMuted, display:"inline-block", animation:`dot 1.2s ${i*0.2}s infinite` }}/>)}</div>
+                <div style={{ width:28, height:28, borderRadius:8, background:ACCENT_GRAD, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <SVG d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" stroke="#fff" w={12} h={12}/>
+                </div>
+                <div style={{ padding:"12px 16px", background:C.canvas, borderRadius:"12px 12px 12px 2px", border:`1px solid ${C.border}`, boxShadow:C.shadow }}>
+                  <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                    <span style={{ fontSize:11, color:C.textMuted, fontStyle:"italic", marginRight:4 }}>MigraPulse AI is typing</span>
+                    {[0,1,2].map(i=>(
+                      <span key={i} style={{ width:6, height:6, borderRadius:"50%", background:C.accent, display:"inline-block", animation:`dot 1.2s ${i*0.2}s infinite` }}/>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
             <div ref={endRef}/>
           </div>
 
-          <div style={{ padding:"8px 12px", background:C.canvas, borderTop:`1px solid ${C.border}`, display:"flex", gap:5, flexWrap:"wrap" }}>
-            {Q.map(q=><button key={q} onClick={()=>setInput(q)} className="qb" style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted, padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>{q}</button>)}
+          {/* Quick buttons */}
+          <div style={{ padding:"8px 10px 6px", background:C.canvas, borderTop:`1px solid ${C.border}`, display:"flex", gap:5, flexWrap:"wrap", maxWidth: expanded ? 900 : "100%", width:"100%", margin: expanded ? "0 auto" : 0, boxSizing:"border-box" }}>
+            {quickBtns.map(q => (
+              <button key={q} onClick={()=>send(q)} disabled={busy}
+                className="qb" style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted, padding:"4px 9px", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"inherit", transition:"all .12s", opacity:busy?0.5:1 }}>
+                {q}
+              </button>
+            ))}
           </div>
-          <div style={{ padding:"10px 12px", background:C.canvas, borderTop:`1px solid ${C.border}`, display:"flex", gap:8 }}>
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send()} placeholder="Ask about migration errors…" className="ci" style={{ flex:1, border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px", fontSize:13, outline:"none", fontFamily:"inherit", background:C.canvasAlt, color:C.text }}/>
-            <button onClick={send} disabled={busy||!input.trim()} style={{ width:38, height:38, borderRadius:8, background:busy||!input.trim()?C.borderStrong:"linear-gradient(135deg,#6366F1,#8B5CF6)", border:"none", cursor:busy||!input.trim()?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:busy||!input.trim()?"none":"0 2px 8px rgba(99,102,241,0.4)" }}>
-              <SVG d="M22 2 11 13 M22 2 15 22 11 13 2 9 22 2" stroke="#fff" w={14} h={14}/>
+
+          {/* Input */}
+          <div style={{ padding:"10px 12px", background:C.canvas, borderTop:`1px solid ${C.border}`, display:"flex", gap:8, alignItems:"center", maxWidth: expanded ? 900 : "100%", width:"100%", margin: expanded ? "0 auto" : 0, boxSizing:"border-box" }}>
+            <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); }}}
+              placeholder={preview?"Ask about this migration run…":"Ask about MigraPulse or migration errors…"}
+              className="ci"
+              style={{ flex:1, border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 12px", fontSize:13, outline:"none", fontFamily:"inherit", background:C.canvasAlt, color:C.text, transition:"all .15s" }}/>
+            <button onClick={()=>send()} disabled={busy||!input.trim()}
+              style={{ width:38, height:38, borderRadius:8,
+                background: busy||!input.trim() ? C.borderStrong : ACCENT_GRAD,
+                border:"none", cursor: busy||!input.trim() ? "not-allowed" : "pointer",
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                boxShadow: busy||!input.trim() ? "none" : "0 2px 8px rgba(99,102,241,0.4)",
+                transition:"all .15s" }}>
+              {busy
+                ? <Spinner C={C} white/>
+                : <SVG d="M22 2 11 13 M22 2 15 22 11 13 2 9 22 2" stroke="#fff" w={14} h={14}/>
+              }
+            </button>
+          </div>
+
+          {/* Footer info */}
+          <div style={{ padding:"5px 12px 8px", background:C.canvas, display:"flex", justifyContent:"space-between", alignItems:"center", maxWidth: expanded ? 900 : "100%", width:"100%", margin: expanded ? "0 auto" : 0, boxSizing:"border-box" }}>
+            <span style={{ fontSize:10, color:C.textMuted }}>Powered by Groq · Free tier · 14,400 req/day</span>
+            <button onClick={()=>setMsgs([{ role:"assistant", content:"Chat cleared! How can I help?", time: new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) }])}
+              style={{ fontSize:10, color:C.textMuted, background:"none", border:"none", cursor:"pointer", padding:"2px 6px", borderRadius:4 }} className="qb">
+              Clear chat
             </button>
           </div>
         </div>
@@ -1286,6 +1793,9 @@ function AIChat({ open, setOpen, C, dark, backendUrl }) {
     </>
   );
 }
+
+
+
 
 /* ── LAYOUT COMPONENTS ──────────────────────────────────────────────────── */
 const PageHeader = ({ C, title, sub, children }) => (
@@ -1476,6 +1986,8 @@ function makeCSS(C, dark, sw) { return `
   .fab:active{transform:scale(.96)!important}
   .cpanel{animation:cIn .2s cubic-bezier(.34,1.56,.64,1)}
   @keyframes cIn{from{opacity:0;transform:translateY(12px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes fabPulse{0%{transform:scale(1);opacity:0.6}70%{transform:scale(1.4);opacity:0}100%{transform:scale(1.4);opacity:0}}
+  @keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
   .qb:hover{background:${C.canvasHover}!important;color:${C.text}!important;border-color:${C.borderStrong}!important}
   .ci:focus{border-color:${C.accent}!important;box-shadow:0 0 0 3px ${dark?"rgba(99,102,241,.3)":"rgba(99,102,241,.15)"}!important;outline:none}
   ::-webkit-scrollbar{width:5px;height:5px}

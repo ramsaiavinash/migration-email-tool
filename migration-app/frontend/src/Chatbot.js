@@ -26,7 +26,7 @@ function updateContext(data) {
   };
 }
 
-async function handleChat(msg, history = []) {
+async function handleChat(msg, history = [], extraContext = {}) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return { message: "⚠️ AI not configured. Add GROQ_API_KEY to .env", error: true };
 
@@ -61,6 +61,16 @@ USERS:
 ${userLines}
 ${codeBreakdown}`;
   }
+
+  // Build extra context string
+  const { orgName="", projectName="", totalRuns=0, totalSent=0, totalErrors=0 } = extraContext;
+  const sessionCtx = orgName || totalRuns > 0 ? `
+SESSION STATS:
+- Organization: ${orgName || "Not configured"}
+- Project: ${projectName || "Not configured"}  
+- Total runs this session: ${totalRuns}
+- Total emails sent: ${totalSent}
+- Total errors processed: ${totalErrors}` : "";
 
   const systemPrompt = `You are MigraPulse AI — a friendly, expert assistant for the MigraPulse tool. You answer questions about both the tool's features AND migration data.
 
@@ -158,7 +168,7 @@ DEPLOYMENT OPTIONS FOR BACKEND:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CURRENT MIGRATION SESSION DATA:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${migrationCtx}
+${migrationCtx}${sessionCtx}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MICROSOFT MIGRATION MANAGER ERROR CODES:

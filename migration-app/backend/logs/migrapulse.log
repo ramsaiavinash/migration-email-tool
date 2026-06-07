@@ -184,3 +184,182 @@
 [2026-06-06 11:55:55.307] [SUCCESS] Email sent — roger_bennett@chs.net | {"errorCount":18,"paStatus":202}
 [2026-06-06 11:55:55.607] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0549243.zip | {"successCount":1,"failedCount":0,"durationMs":"1781ms"}
 [2026-06-06 11:55:55.613] [INFO   ] POST /api/process-migration → 200 | {"duration":"1980ms"}
+[2026-06-06 11:58:40.291] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-06 11:58:40.293] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2585ms"}
+[2026-06-06 11:58:47.380] [INFO   ] Processing started — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1}
+[2026-06-06 11:58:48.553] [SUCCESS] Email sent — kevin_myers@chs.net | {"errorCount":550,"paStatus":202}
+[2026-06-06 11:58:48.853] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0629435.zip | {"successCount":1,"failedCount":0,"durationMs":"3353ms"}
+[2026-06-06 11:58:48.855] [INFO   ] POST /api/process-migration → 200 | {"duration":"3665ms"}
+[2026-06-06 12:03:36.149] [SYSTEM ] ============================================================
+[2026-06-06 12:03:36.151] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-06 12:03:36.151] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-06 12:03:36.151] [SYSTEM ] ============================================================
+[2026-06-06 12:05:41.478] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-06 12:05:41.482] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2571ms"}
+[2026-06-06 12:05:50.174] [INFO   ] Processing started — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1}
+[2026-06-06 12:05:50.426] [SUCCESS] Email sent — kevin_myers@chs.net | {"errorCount":550,"paStatus":202}
+[2026-06-06 12:05:50.728] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0629435.zip | {"successCount":1,"failedCount":0,"durationMs":"2504ms"}
+[2026-06-06 12:05:50.730] [INFO   ] POST /api/process-migration → 200 | {"duration":"2744ms"}
+[2026-06-07 06:02:57.766] [SYSTEM ] ============================================================
+[2026-06-07 06:02:57.769] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 06:02:57.769] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 06:02:57.770] [SYSTEM ] ============================================================
+[2026-06-07 06:03:55.854] [CHAT   ] Q: Summary of this run | {"replyLen":238,"durationMs":"654ms"}
+[2026-06-07 06:03:55.856] [INFO   ] POST /api/chat → 200 | {"duration":"656ms"}
+[2026-06-07 06:12:39.675] [SYSTEM ] ============================================================
+[2026-06-07 06:12:39.676] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 06:12:39.676] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 06:12:39.676] [SYSTEM ] ============================================================
+[2026-06-07 06:13:10.992] [CHAT   ] Q: Summary of the previous run | {"replyLen":182,"durationMs":"424ms"}
+[2026-06-07 06:13:10.994] [INFO   ] POST /api/chat → 200 | {"duration":"427ms","ip":"::1"}
+[2026-06-07 06:15:10.891] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-07 06:15:10.893] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1763ms","ip":"::1"}
+[2026-06-07 06:16:18.290] [CHAT   ] Q: Summary of this run | {"replyLen":571,"durationMs":"673ms"}
+[2026-06-07 06:16:18.292] [INFO   ] POST /api/chat → 200 | {"duration":"674ms","ip":"::1"}
+[2026-06-07 06:16:26.439] [CHAT   ] Q: Which users need help? | {"replyLen":605,"durationMs":"616ms"}
+[2026-06-07 06:16:26.440] [INFO   ] POST /api/chat → 200 | {"duration":"617ms","ip":"::1"}
+[2026-06-07 06:16:31.978] [CHAT   ] Q: What actions are needed? | {"replyLen":974,"durationMs":"832ms"}
+[2026-06-07 06:16:31.979] [INFO   ] POST /api/chat → 200 | {"duration":"833ms","ip":"::1"}
+[2026-06-07 06:16:35.113] [CHAT   ] Q: How many files per error? | {"replyLen":282,"durationMs":"422ms"}
+[2026-06-07 06:16:35.113] [INFO   ] POST /api/chat → 200 | {"duration":"422ms","ip":"::1"}
+[2026-06-07 06:16:44.848] [CHAT   ] Q: What actions are needed? | {"replyLen":518,"durationMs":"614ms"}
+[2026-06-07 06:16:44.849] [INFO   ] POST /api/chat → 200 | {"duration":"615ms","ip":"::1"}
+[2026-06-07 06:20:00.089] [CHAT   ] Q: How does MigraPulse work? | {"replyLen":828,"durationMs":"839ms"}
+[2026-06-07 06:20:00.091] [INFO   ] POST /api/chat → 200 | {"duration":"842ms","ip":"::1"}
+[2026-06-07 06:20:11.522] [CHAT   ] Q: What themes are available? | {"replyLen":303,"durationMs":"472ms"}
+[2026-06-07 06:20:11.523] [INFO   ] POST /api/chat → 200 | {"duration":"473ms","ip":"::1"}
+[2026-06-07 06:20:23.728] [CHAT   ] Q: What error codes are supported? | {"replyLen":750,"durationMs":"683ms"}
+[2026-06-07 06:20:23.729] [INFO   ] POST /api/chat → 200 | {"duration":"684ms","ip":"::1"}
+[2026-06-07 06:22:31.884] [CHAT   ] Q: How do I set up Power Automate? | {"replyLen":787,"durationMs":"868ms"}
+[2026-06-07 06:22:31.885] [INFO   ] POST /api/chat → 200 | {"duration":"869ms","ip":"::1"}
+[2026-06-07 06:22:40.962] [CHAT   ] Q: What error codes are supported? | {"replyLen":811,"durationMs":"580ms"}
+[2026-06-07 06:22:40.962] [INFO   ] POST /api/chat → 200 | {"duration":"580ms","ip":"::1"}
+[2026-06-07 06:27:05.924] [INFO   ] GET /api/error-codes → 200 | {"duration":"2ms","ip":"::1"}
+[2026-06-07 06:27:06.082] [INFO   ] GET /api/error-codes → 200 | {"duration":"0ms","ip":"::1"}
+[2026-06-07 06:27:52.262] [INFO   ] GET /api/error-codes → 200 | {"duration":"1ms","ip":"::1"}
+[2026-06-07 06:27:52.423] [INFO   ] GET /api/error-codes → 200 | {"duration":"0ms","ip":"::1"}
+[2026-06-07 06:28:01.762] [INFO   ] GET /favicon.ico → 404 | {"duration":"2ms","ip":"::1"}
+[2026-06-07 06:29:12.473] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1,"totalErrors":99}
+[2026-06-07 06:29:12.474] [INFO   ] POST /api/preview-migration → 200 | {"duration":"402ms","ip":"::1"}
+[2026-06-07 06:29:16.191] [INFO   ] Processing started — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1}
+[2026-06-07 06:29:18.151] [SUCCESS] Email sent — neal.martin@ssc-fortsmith.com | {"errorCount":99,"paStatus":202}
+[2026-06-07 06:29:18.452] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T1005142.zip | {"successCount":1,"failedCount":0,"durationMs":"2492ms"}
+[2026-06-07 06:29:18.453] [INFO   ] POST /api/process-migration → 200 | {"duration":"2538ms","ip":"::1"}
+[2026-06-07 06:31:48.915] [CHAT   ] Q: What error codes are supported? | {"replyLen":739,"durationMs":"694ms"}
+[2026-06-07 06:31:48.915] [INFO   ] POST /api/chat → 200 | {"duration":"694ms","ip":"::1"}
+[2026-06-07 06:31:54.971] [CHAT   ] Q: What themes are available? | {"replyLen":291,"durationMs":"412ms"}
+[2026-06-07 06:31:54.972] [INFO   ] POST /api/chat → 200 | {"duration":"413ms","ip":"::1"}
+[2026-06-07 06:32:13.816] [CHAT   ] Q: give me the summary of the last run | {"replyLen":411,"durationMs":"457ms"}
+[2026-06-07 06:32:13.817] [INFO   ] POST /api/chat → 200 | {"duration":"458ms","ip":"::1"}
+[2026-06-07 06:36:25.659] [SYSTEM ] ============================================================
+[2026-06-07 06:36:25.660] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 06:36:25.660] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 06:36:25.660] [SYSTEM ] ============================================================
+[2026-06-07 06:36:40.871] [INFO   ] GET /api/history → 200 | {"duration":"5ms"}
+[2026-06-07 06:36:41.070] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:48:42.888] [SYSTEM ] ============================================================
+[2026-06-07 06:48:42.893] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 06:48:42.893] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 06:48:42.893] [SYSTEM ] ============================================================
+[2026-06-07 06:48:51.224] [INFO   ] GET /api/history → 200 | {"duration":"4ms"}
+[2026-06-07 06:48:51.379] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:51:40.525] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:51:40.725] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:51:45.527] [INFO   ] GET /api/error-codes → 200 | {"duration":"29ms"}
+[2026-06-07 06:51:45.789] [INFO   ] GET /api/error-codes → 200 | {"duration":"1ms"}
+[2026-06-07 06:52:10.688] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1,"totalErrors":102}
+[2026-06-07 06:52:10.690] [INFO   ] POST /api/preview-migration → 200 | {"duration":"623ms"}
+[2026-06-07 06:53:36.368] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:53:36.546] [INFO   ] GET /api/history → 200 | {"duration":"0ms"}
+[2026-06-07 06:53:48.705] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1,"totalErrors":102}
+[2026-06-07 06:53:48.705] [INFO   ] POST /api/preview-migration → 200 | {"duration":"416ms"}
+[2026-06-07 06:53:55.573] [INFO   ] Email preview generated for neal.martin@ssc-fortsmith.com
+[2026-06-07 06:53:55.575] [INFO   ] POST /api/preview-email → 200 | {"duration":"1217ms"}
+[2026-06-07 06:54:01.705] [INFO   ] Email preview generated for neal.martin@ssc-fortsmith.com
+[2026-06-07 06:54:01.706] [INFO   ] POST /api/preview-email → 200 | {"duration":"356ms"}
+[2026-06-07 06:54:04.910] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1,"totalErrors":102}
+[2026-06-07 06:54:04.911] [INFO   ] POST /api/preview-migration → 200 | {"duration":"279ms"}
+[2026-06-07 06:54:08.868] [INFO   ] Email preview generated for neal.martin@ssc-fortsmith.com
+[2026-06-07 06:54:08.869] [INFO   ] POST /api/preview-email → 200 | {"duration":"345ms"}
+[2026-06-07 06:55:31.277] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 06:55:31.440] [INFO   ] GET /api/history → 200 | {"duration":"0ms"}
+[2026-06-07 06:55:44.486] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1,"totalErrors":102}
+[2026-06-07 06:55:44.487] [INFO   ] POST /api/preview-migration → 200 | {"duration":"418ms"}
+[2026-06-07 06:55:47.155] [INFO   ] Email preview generated for neal.martin@ssc-fortsmith.com
+[2026-06-07 06:55:47.156] [INFO   ] POST /api/preview-email → 200 | {"duration":"317ms"}
+[2026-06-07 06:56:04.142] [INFO   ] Processing started — Migration detailed report-2026-06-06T0641103.zip | {"affectedUsers":1}
+[2026-06-07 06:56:04.370] [SUCCESS] Email sent — neal.martin@ssc-fortsmith.com | {"errorCount":102,"paStatus":202}
+[2026-06-07 06:56:04.670] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0641103.zip | {"successCount":1,"failedCount":0,"durationMs":"762ms"}
+[2026-06-07 06:56:04.670] [INFO   ] Run saved to history file | {"file":"Migration detailed report-2026-06-06T0641103.zip","sent":1,"failed":0}
+[2026-06-07 06:56:04.671] [INFO   ] POST /api/process-migration → 200 | {"duration":"835ms"}
+[2026-06-07 07:01:04.489] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:01:04.643] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:11:02.043] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:11:02.198] [INFO   ] GET /api/history → 200 | {"duration":"0ms"}
+[2026-06-07 07:12:02.688] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T1005142.zip | {"affectedUsers":1,"totalErrors":99}
+[2026-06-07 07:12:02.688] [INFO   ] POST /api/preview-migration → 200 | {"duration":"486ms"}
+[2026-06-07 07:12:06.335] [INFO   ] Email preview generated for neal.martin@ssc-fortsmith.com
+[2026-06-07 07:12:06.336] [INFO   ] POST /api/preview-email → 200 | {"duration":"403ms"}
+[2026-06-07 07:15:11.874] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:15:12.032] [INFO   ] GET /api/history → 200 | {"duration":"0ms"}
+[2026-06-07 07:16:12.998] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-07 07:16:12.999] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1256ms"}
+[2026-06-07 07:16:16.599] [INFO   ] Email preview generated for kalvin.buckley@woodlandheights.net
+[2026-06-07 07:16:16.600] [INFO   ] POST /api/preview-email → 200 | {"duration":"1072ms"}
+[2026-06-07 07:18:33.221] [INFO   ] GET /api/history → 200 | {"duration":"0ms"}
+[2026-06-07 07:18:33.429] [INFO   ] GET /api/history → 200 | {"duration":"2ms"}
+[2026-06-07 07:19:23.125] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-07 07:19:23.126] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2755ms"}
+[2026-06-07 07:19:31.577] [INFO   ] Email preview generated for kevin_myers@chs.net
+[2026-06-07 07:19:31.578] [INFO   ] POST /api/preview-email → 200 | {"duration":"2733ms"}
+[2026-06-07 07:21:14.529] [INFO   ] GET /api/history → 200 | {"duration":"5ms"}
+[2026-06-07 07:21:14.683] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:21:29.302] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-07 07:21:29.302] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1294ms"}
+[2026-06-07 07:21:33.231] [INFO   ] Email preview generated for kalvin.buckley@woodlandheights.net
+[2026-06-07 07:21:33.232] [INFO   ] POST /api/preview-email → 200 | {"duration":"1013ms"}
+[2026-06-07 07:22:17.121] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-07 07:22:17.121] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2453ms"}
+[2026-06-07 07:22:24.790] [INFO   ] Email preview generated for kevin_myers@chs.net
+[2026-06-07 07:22:24.791] [INFO   ] POST /api/preview-email → 200 | {"duration":"2281ms"}
+[2026-06-07 07:22:38.988] [SYSTEM ] ============================================================
+[2026-06-07 07:22:38.990] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 07:22:38.990] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 07:22:38.990] [SYSTEM ] ============================================================
+[2026-06-07 07:22:43.234] [INFO   ] GET /api/history → 200 | {"duration":"4ms"}
+[2026-06-07 07:22:43.434] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:23:21.178] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-07 07:23:21.179] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1238ms"}
+[2026-06-07 07:23:26.221] [INFO   ] Email preview generated for kalvin.buckley@woodlandheights.net with theme: red
+[2026-06-07 07:23:26.222] [INFO   ] POST /api/preview-email → 200 | {"duration":"1437ms"}
+[2026-06-07 07:24:55.786] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0721421 (1).zip | {"affectedUsers":1,"totalErrors":4}
+[2026-06-07 07:24:55.787] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1110ms"}
+[2026-06-07 07:25:00.794] [INFO   ] Email preview generated for kalvin.buckley@woodlandheights.net with theme: amber
+[2026-06-07 07:25:00.795] [INFO   ] POST /api/preview-email → 200 | {"duration":"1073ms"}
+[2026-06-07 07:27:46.995] [INFO   ] GET /api/history → 200 | {"duration":"3ms"}
+[2026-06-07 07:27:47.276] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:28:00.726] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0907023.zip | {"affectedUsers":1,"totalErrors":42}
+[2026-06-07 07:28:00.727] [INFO   ] POST /api/preview-migration → 200 | {"duration":"1199ms"}
+[2026-06-07 07:28:06.623] [INFO   ] Email preview generated for gregory.griffis@chs.net with theme: amber
+[2026-06-07 07:28:06.624] [INFO   ] POST /api/preview-email → 200 | {"duration":"1140ms"}
+[2026-06-07 07:30:24.508] [SYSTEM ] ============================================================
+[2026-06-07 07:30:24.509] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 07:30:24.509] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 07:30:24.509] [SYSTEM ] ============================================================
+[2026-06-07 07:31:45.896] [SYSTEM ] ============================================================
+[2026-06-07 07:31:45.897] [SYSTEM ] MigraPulse backend started on port 3001
+[2026-06-07 07:31:45.897] [SYSTEM ] AI enabled: true | Error codes loaded: 82
+[2026-06-07 07:31:45.897] [SYSTEM ] ============================================================
+[2026-06-07 07:32:01.135] [INFO   ] GET /api/history → 200 | {"duration":"7ms"}
+[2026-06-07 07:32:01.137] [INFO   ] GET /api/history → 200 | {"duration":"1ms"}
+[2026-06-07 07:33:06.377] [INFO   ] ZIP preview — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1,"totalErrors":550}
+[2026-06-07 07:33:06.378] [INFO   ] POST /api/preview-migration → 200 | {"duration":"2769ms"}
+[2026-06-07 07:33:13.964] [INFO   ] Email preview generated for kevin_myers@chs.net with theme: teal
+[2026-06-07 07:33:13.965] [INFO   ] POST /api/preview-email → 200 | {"duration":"2496ms"}
+[2026-06-07 07:33:50.947] [INFO   ] Processing started — Migration detailed report-2026-06-06T0629435.zip | {"affectedUsers":1}
+[2026-06-07 07:33:51.261] [SUCCESS] Email sent — kevin_myers@chs.net | {"errorCount":550,"paStatus":202}
+[2026-06-07 07:33:51.562] [SUCCESS] Processing complete — Migration detailed report-2026-06-06T0629435.zip | {"successCount":1,"failedCount":0,"durationMs":"2803ms"}
+[2026-06-07 07:33:51.563] [INFO   ] Run saved to history file | {"file":"Migration detailed report-2026-06-06T0629435.zip","sent":1,"failed":0}
+[2026-06-07 07:33:51.564] [INFO   ] POST /api/process-migration → 200 | {"duration":"3052ms"}
+[2026-06-07 07:34:24.288] [INFO   ] GET /api/error-codes → 200 | {"duration":"3ms"}
+[2026-06-07 07:34:24.469] [INFO   ] GET /api/error-codes → 200 | {"duration":"0ms"}
